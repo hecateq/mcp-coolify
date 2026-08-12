@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeGitHubApp, normalizeGitHubRepository, normalizeGitHubBranch, normalizeScheduledTask, normalizeTaskExecution, normalizeServer, normalizeTeam, normalizeTeamMember, normalizeBackupConfig, normalizeBackupExecution, normalizeStorageMount, normalizeDomain } from '../../src/coolify/normalizers.js';
-import type { CoolifyGitHubApp, CoolifyGitHubRepository, CoolifyGitHubBranch, CoolifyScheduledTask, CoolifyTaskExecution, CoolifyServer, CoolifyTeam, CoolifyTeamMember, CoolifyBackupConfig, CoolifyBackupExecution, CoolifyStorageMount, CoolifyDomain } from '../../src/coolify/types.js';
+import { normalizeGitHubApp, normalizeGitHubRepository, normalizeGitHubBranch, normalizeScheduledTask, normalizeTaskExecution, normalizeServer, normalizeTeam, normalizeTeamMember, normalizeBackupConfig, normalizeBackupExecution, normalizeStorageMount, normalizeDomain, normalizeRollbackImagesResponse, normalizeS3Storage, normalizeS3Storages, normalizeS3ValidateResult, normalizeNotificationSettings, normalizeNotificationSettingsList, normalizeDestination, normalizeDestinations, normalizeVersion } from '../../src/coolify/normalizers.js';
+import type { CoolifyGitHubApp, CoolifyGitHubRepository, CoolifyGitHubBranch, CoolifyScheduledTask, CoolifyTaskExecution, CoolifyServer, CoolifyTeam, CoolifyTeamMember, CoolifyBackupConfig, CoolifyBackupExecution, CoolifyStorageMount, CoolifyDomain, CoolifyRollbackImagesResponse, CoolifyS3Storage, CoolifyS3ValidateResult } from '../../src/coolify/types.js';
 
 describe('New Normalizers', () => {
   describe('normalizeGitHubApp', () => {
@@ -115,6 +115,142 @@ describe('New Normalizers', () => {
       const input: CoolifyDomain = { uuid: 'dom-1', domain: 'app.example.com', verified: true };
       const result = normalizeDomain(input);
       expect(result).toMatchObject({ uuid: 'dom-1', domain: 'app.example.com', verified: true });
+    });
+  });
+
+  describe('normalizeRollbackImagesResponse', () => {
+    it('normalizes rollback images', () => {
+      const input: CoolifyRollbackImagesResponse = {
+        current: 'v1',
+        images: [
+          { tag: 'v1', created_at: '2026-01-01', is_current: true },
+          { tag: 'v0', created_at: '2025-12-01' },
+        ],
+      };
+      const result = normalizeRollbackImagesResponse(input);
+      expect(result.current).toBe('v1');
+      expect(result.images).toHaveLength(2);
+      expect(result.images[0]).toMatchObject({ tag: 'v1', is_current: true });
+    });
+
+    it('handles missing images as empty list', () => {
+      const result = normalizeRollbackImagesResponse({});
+      expect(result.images).toEqual([]);
+    });
+  });
+
+  describe('normalizeS3Storage', () => {
+    it('normalizes S3 storage excluding credentials', () => {
+      const input: CoolifyS3Storage = {
+        uuid: 's3-1',
+        name: 'Backup',
+        endpoint: 'https://s3.amazonaws.com',
+        bucket: 'backups',
+        region: 'us-east-1',
+        is_usable: true,
+        team_id: 1,
+      };
+      const result = normalizeS3Storage(input);
+      expect(result).toMatchObject({ uuid: 's3-1', name: 'Backup', bucket: 'backups', region: 'us-east-1' });
+      expect(JSON.stringify(result)).not.toContain('key');
+      expect(JSON.stringify(result)).not.toContain('secret');
+    });
+  });
+
+  describe('normalizeS3Storages', () => {
+    it('normalizes a list of S3 storages', () => {
+      const result = normalizeS3Storages([{ uuid: 's3-1', name: 'A', endpoint: 'e', bucket: 'b', region: 'r' }]);
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('normalizeS3ValidateResult', () => {
+    it('normalizes validation result', () => {
+      const input: CoolifyS3ValidateResult = { valid: true, message: 'S3 storage connection is valid.' };
+      const result = normalizeS3ValidateResult(input);
+      expect(result).toEqual({ valid: true, message: 'S3 storage connection is valid.' });
+    });
+  });
+});
+
+describe('normalizeNotificationSettings', () => {
+  it('normalizes settings without leaking sensitive values', () => {
+    const result = normalizeNotificationSettings(
+      {
+        webhook_enabled: true,
+        webhook_url: 'https://hooks.example.com/secret-token',
+        deployment_success_webhook_notifications: true,
+        team_id: 1,
+      },
+      'webhook',
+    );
+    expect(result.channel).toBe('webhook');
+    expect(result.enabled).toBe(true);
+    expect(result.configured_fields).toContain('deployment_success_webhook_notifications');
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain('hooks.example.com');
+    expect(serialized).not.toContain('secret-token');
+    expect(serialized).not.toContain('webhook_url');
+  });
+  it('marks disabled channels', () => {
+    const result = normalizeNotificationSettings({ discord_enabled: false }, 'discord');
+    expect(result.enabled).toBe(false);
+    expect(result.summary).toContain('disabled');
+  });
+  it('summarizes credentials as configured without exposing them', () => {
+    const result = normalizeNotificationSettings(
+      { telegram_enabled: true, telegram_token: 'tok-123' },
+      'telegram',
+    );
+    expect(result.summary).toContain('credentials configured');
+    expect(JSON.stringify(result)).not.toContain('tok-123');
+  });
+});
+
+describe('normalizeNotificationSettingsList', () => {
+  it('maps channels in stable order, skipping missing', () => {
+    const result = normalizeNotificationSettingsList({
+      webhook: { webhook_enabled: true },
+      discord: { discord_enabled: true },
+    });
+    expect(result.map((n) => n.channel)).toEqual(['discord', 'webhook']);
+  });
+});
+
+describe('normalizeDestination', () => {
+  it('normalizes a destination', () => {
+    const result = normalizeDestination({
+      uuid: 'd1',
+      name: 'Main',
+      network: 'coolify',
+      type: 'standalone',
+      server_uuid: 's1',
+    });
+    expect(result).toMatchObject({
+      uuid: 'd1',
+      name: 'Main',
+      network: 'coolify',
+      type: 'standalone',
+      server_uuid: 's1',
+    });
+  });
+});
+
+describe('normalizeDestinations', () => {
+  it('normalizes a list', () => {
+    const result = normalizeDestinations([{ uuid: 'd1', name: 'A', network: 'n1', type: 'swarm' }]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ name: 'A', network: 'n1', type: 'swarm' });
+  });
+});
+
+describe('normalizeVersion', () => {
+  it('normalizes a string version', () => {
+    expect(normalizeVersion('4.0.0-beta.500')).toEqual({ version: '4.0.0-beta.500' });
+  });
+  it('serializes non-string payloads', () => {
+    expect(normalizeVersion({ version: '1.2.3' })).toEqual({
+      version: JSON.stringify({ version: '1.2.3' }),
     });
   });
 });

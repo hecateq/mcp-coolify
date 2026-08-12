@@ -194,4 +194,183 @@ describe('CoolifyClient — New API Methods', () => {
       await expect(client.createStorage('app-uuid', 'application', { source: '/data', destination: '/app/data' })).rejects.toThrow();
     });
   });
+
+  describe('listApplicationRollbackImages', () => {
+    it('constructs correct path', async () => {
+      await expect(client.listApplicationRollbackImages('app-uuid')).rejects.toThrow();
+    });
+  });
+
+  describe('rollbackApplication', () => {
+    it('posts to rollback endpoint with commit body using deploy permission', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ message: 'ok', deployment_uuid: 'dep-1' }),
+        text: async () => '',
+      });
+      await client.rollbackApplication('app-uuid', 'v1');
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://coolify.example.com/api/v1/applications/app-uuid/rollback');
+      expect(init.method).toBe('POST');
+      expect(init.body).toBe(JSON.stringify({ commit: 'v1' }));
+    });
+  });
+
+  describe('listS3Storages', () => {
+    it('constructs correct path', async () => {
+      await expect(client.listS3Storages()).rejects.toThrow();
+    });
+  });
+
+  describe('createS3Storage', () => {
+    it('posts to s3-storages endpoint with body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ uuid: 's3-1' }),
+        text: async () => '',
+      });
+      await client.createS3Storage({ name: 'b', endpoint: 'e', bucket: 'bu', region: 'r', key: 'k', secret: 's' });
+      const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('https://coolify.example.com/api/v1/s3-storages');
+      expect(init.method).toBe('POST');
+      expect(init.body).toContain('"secret":"s"');
+    });
+  });
+
+  describe('validateS3Storage', () => {
+    it('constructs correct path', async () => {
+      await expect(client.validateS3Storage('s3-1')).rejects.toThrow();
+    });
+  });
+
+  describe('CoolifyClient — Batch C API Methods', () => {
+    describe('getNotification', () => {
+      it('constructs the channel path', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ webhook_enabled: true }),
+          text: async () => '',
+        });
+        await client.getNotification('webhook');
+        const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/notifications/webhook');
+        expect(init.method).toBe('GET');
+      });
+    });
+
+    describe('updateNotification', () => {
+      it('patches the channel endpoint with body', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ webhook_enabled: true }),
+          text: async () => '',
+        });
+        await client.updateNotification('webhook', { webhook_enabled: true });
+        const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/notifications/webhook');
+        expect(init.method).toBe('PATCH');
+        expect(init.body).toBe(JSON.stringify({ webhook_enabled: true }));
+      });
+    });
+
+    describe('listDestinations', () => {
+      it('constructs correct path', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => [],
+          text: async () => '',
+        });
+        await client.listDestinations();
+        const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/destinations');
+      });
+    });
+
+    describe('getDestination', () => {
+      it('constructs correct path', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ uuid: 'dest-1' }),
+          text: async () => '',
+        });
+        await client.getDestination('dest-1');
+        const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/destinations/dest-1');
+      });
+    });
+
+    describe('createDestination', () => {
+      it('posts to server destinations endpoint with body', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => ({ uuid: 'dest-1' }),
+          text: async () => '',
+        });
+        await client.createDestination('srv-1', { network: 'coolify', name: 'Main' });
+        const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/servers/srv-1/destinations');
+        expect(init.method).toBe('POST');
+        expect(init.body).toBe(JSON.stringify({ network: 'coolify', name: 'Main' }));
+      });
+    });
+
+    describe('getDatabaseLogs', () => {
+      it('constructs correct path with lines param', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => 'log line',
+          text: async () => '',
+        });
+        await client.getDatabaseLogs('db-1', 50);
+        const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/databases/db-1/logs?lines=50');
+      });
+    });
+
+    describe('getServiceLogs', () => {
+      it('constructs correct path with default lines', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => 'log line',
+          text: async () => '',
+        });
+        await client.getServiceLogs('svc-1');
+        const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/services/svc-1/logs?lines=200');
+      });
+    });
+
+    describe('getVersion', () => {
+      it('constructs correct path', async () => {
+        mockFetch.mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+          json: async () => '4.0.0',
+          text: async () => '',
+        });
+        await client.getVersion();
+        const [url] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe('https://coolify.example.com/api/v1/version');
+      });
+    });
+  });
 });

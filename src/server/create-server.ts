@@ -10,6 +10,14 @@ import * as listDeploymentsTool from '../tools/read/deployments.js';
 import * as getDeploymentTool from '../tools/read/get-deployment.js';
 import * as logsTool from '../tools/read/logs.js';
 import * as envVarsTool from '../tools/read/env-vars.js';
+import * as listRollbackImagesTool from '../tools/read/list-rollback-images.js';
+import * as listS3StoragesTool from '../tools/read/list-s3-storages.js';
+import * as listNotificationsTool from '../tools/read/list-notifications.js';
+import * as listDestinationsTool from '../tools/read/list-destinations.js';
+import * as getDestinationTool from '../tools/read/get-destination.js';
+import * as getDatabaseLogsTool from '../tools/read/get-database-logs.js';
+import * as getServiceLogsTool from '../tools/read/get-service-logs.js';
+import * as getVersionTool from '../tools/read/get-version.js';
 
 import * as deployTool from '../tools/actions/deploy.js';
 import * as restartTool from '../tools/actions/restart.js';
@@ -22,6 +30,11 @@ import * as createServiceTool from '../tools/actions/create-service.js';
 import * as createDatabaseTool from '../tools/actions/create-database.js';
 import * as createEnvironmentTool from '../tools/actions/create-environment.js';
 import * as setEnvVarsBulkTool from '../tools/actions/set-env-vars-bulk.js';
+import * as rollbackApplicationTool from '../tools/actions/rollback-application.js';
+import * as createS3StorageTool from '../tools/actions/create-s3-storage.js';
+import * as validateS3StorageTool from '../tools/actions/validate-s3-storage.js';
+import * as updateNotificationTool from '../tools/actions/update-notification.js';
+import * as createDestinationTool from '../tools/actions/create-destination.js';
 
 import * as githubAppsTool from '../tools/discovery/github-apps.js';
 import * as repositoriesTool from '../tools/discovery/repositories.js';
@@ -31,11 +44,15 @@ import * as scheduledTasksListTool from '../tools/scheduled-tasks/list.js';
 import * as taskExecutionsTool from '../tools/scheduled-tasks/executions.js';
 import * as createScheduledTaskTool from '../tools/scheduled-tasks/create.js';
 import * as updateScheduledTaskTool from '../tools/scheduled-tasks/update.js';
+import * as executeScheduledTaskTool from '../tools/scheduled-tasks/execute.js';
 
 import * as cancelDeploymentTool from '../tools/deployments/cancel.js';
 
 import * as listBackupsTool from '../tools/backups/list.js';
 import * as createBackupConfigTool from '../tools/backups/create-config.js';
+import * as backupExecutionsTool from '../tools/backups/executions.js';
+import * as runVolumeBackupTool from '../tools/backups/run.js';
+import * as updateBackupConfigTool from '../tools/backups/update-config.js';
 
 import * as listServersTool from '../tools/servers/list.js';
 import * as getServerTool from '../tools/servers/get.js';
@@ -167,6 +184,26 @@ export function createServer(): McpServer {
     envVarsTool.handler,
   );
 
+  server.registerTool(
+    'coolify_list_rollback_images',
+    {
+      description: 'List available Docker images for rolling back an application. Returns current tag and available image tags.',
+      inputSchema: listRollbackImagesTool.inputSchema,
+      annotations: listRollbackImagesTool.annotations,
+    },
+    listRollbackImagesTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_list_s3_storages',
+    {
+      description: 'List all S3 storages for the authenticated team with optional name filter. Credentials are NEVER returned.',
+      inputSchema: listS3StoragesTool.inputSchema,
+      annotations: listS3StoragesTool.annotations,
+    },
+    listS3StoragesTool.handler,
+  );
+
   // ─── Action Tools ───
   server.registerTool(
     'coolify_deploy',
@@ -177,6 +214,16 @@ export function createServer(): McpServer {
       annotations: deployTool.annotations,
     },
     deployTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_rollback_application',
+    {
+      description: 'Queue a rollback deployment for an application to a previous image tag/commit. Deploy-only operation subject to operation mode, allowlist, and production guard policies. Audit: coolify.application.rollback',
+      inputSchema: rollbackApplicationTool.inputSchema,
+      annotations: rollbackApplicationTool.annotations,
+    },
+    rollbackApplicationTool.handler,
   );
 
   server.registerTool(
@@ -353,6 +400,15 @@ export function createServer(): McpServer {
     },
     updateScheduledTaskTool.handler,
   );
+  server.registerTool(
+    'coolify_execute_scheduled_task',
+    {
+      description: 'Execute a scheduled task immediately. Subject to operation mode, allowlist, and production guard policies.',
+      inputSchema: executeScheduledTaskTool.inputSchema,
+      annotations: executeScheduledTaskTool.annotations,
+    },
+    executeScheduledTaskTool.handler,
+  );
 
   // ─── Deployment Tool ───
   server.registerTool(
@@ -384,6 +440,33 @@ export function createServer(): McpServer {
       annotations: createBackupConfigTool.annotations,
     },
     createBackupConfigTool.handler,
+  );
+  server.registerTool(
+    'coolify_list_backup_executions',
+    {
+      description: 'List backup executions for a scheduled backup configuration. Output is redacted for security.',
+      inputSchema: backupExecutionsTool.inputSchema,
+      annotations: backupExecutionsTool.annotations,
+    },
+    backupExecutionsTool.handler,
+  );
+  server.registerTool(
+    'coolify_run_volume_backup',
+    {
+      description: 'Run a volume backup for a storage mount on an application, database, or service. Subject to operation mode, allowlist, and production guard policies.',
+      inputSchema: runVolumeBackupTool.inputSchema,
+      annotations: runVolumeBackupTool.annotations,
+    },
+    runVolumeBackupTool.handler,
+  );
+  server.registerTool(
+    'coolify_update_backup_config',
+    {
+      description: 'Update a backup configuration for a database. PATCH semantics — only provided fields are updated. Cron expression is validated.',
+      inputSchema: updateBackupConfigTool.inputSchema,
+      annotations: updateBackupConfigTool.annotations,
+    },
+    updateBackupConfigTool.handler,
   );
 
   // ─── Server Tools ───
@@ -498,6 +581,110 @@ export function createServer(): McpServer {
       annotations: createStorageTool.annotations,
     },
     createStorageTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_create_s3_storage',
+    {
+      description: 'Create a new S3 storage configuration for the authenticated team. Credentials are never returned or logged. Subject to operation mode policy. Audit: coolify.s3_storage.create',
+      inputSchema: createS3StorageTool.inputSchema,
+      annotations: createS3StorageTool.annotations,
+    },
+    createS3StorageTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_validate_s3_storage',
+    {
+      description: 'Validate an S3 storage connection using ListObjectsV2. Audited as a mutation action.',
+      inputSchema: validateS3StorageTool.inputSchema,
+      annotations: validateS3StorageTool.annotations,
+    },
+    validateS3StorageTool.handler,
+  );
+
+  // ─── Notification Tools ───
+  server.registerTool(
+    'coolify_list_notifications',
+    {
+      description: 'List notification channel settings. Credential values (webhook URLs, tokens, passwords) are never exposed.',
+      inputSchema: listNotificationsTool.inputSchema,
+      annotations: listNotificationsTool.annotations,
+    },
+    listNotificationsTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_update_notification',
+    {
+      description: 'Update notification settings for a channel. PATCH semantics. Credential values are never echoed back or logged. Subject to operation mode and production guard policies. Audit: coolify.notification.update.',
+      inputSchema: updateNotificationTool.inputSchema,
+      annotations: updateNotificationTool.annotations,
+    },
+    updateNotificationTool.handler,
+  );
+
+  // ─── Destination Tools ───
+  server.registerTool(
+    'coolify_list_destinations',
+    {
+      description: 'List all Docker network destinations for the authenticated team.',
+      inputSchema: listDestinationsTool.inputSchema,
+      annotations: listDestinationsTool.annotations,
+    },
+    listDestinationsTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_get_destination',
+    {
+      description: 'Get a single destination by UUID.',
+      inputSchema: getDestinationTool.inputSchema,
+      annotations: getDestinationTool.annotations,
+    },
+    getDestinationTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_create_destination',
+    {
+      description: 'Create a Docker network destination on a server. Subject to operation mode, allowlist, and production guard policies. Audit: coolify.destination.create.',
+      inputSchema: createDestinationTool.inputSchema,
+      annotations: createDestinationTool.annotations,
+    },
+    createDestinationTool.handler,
+  );
+
+  // ─── Database & Service Logs ───
+  server.registerTool(
+    'coolify_get_database_logs',
+    {
+      description: 'Get database container logs. Secrets are redacted.',
+      inputSchema: getDatabaseLogsTool.inputSchema,
+      annotations: getDatabaseLogsTool.annotations,
+    },
+    getDatabaseLogsTool.handler,
+  );
+
+  server.registerTool(
+    'coolify_get_service_logs',
+    {
+      description: 'Get service container logs. Secrets are redacted.',
+      inputSchema: getServiceLogsTool.inputSchema,
+      annotations: getServiceLogsTool.annotations,
+    },
+    getServiceLogsTool.handler,
+  );
+
+  // ─── Version Tool ───
+  server.registerTool(
+    'coolify_get_version',
+    {
+      description: 'Get the Coolify instance version.',
+      inputSchema: getVersionTool.inputSchema,
+      annotations: getVersionTool.annotations,
+    },
+    getVersionTool.handler,
   );
 
   return server;

@@ -623,3 +623,136 @@ export interface EnvVarEntry {
   key: string;
   value: string;
 }
+
+/* ─── S3 Storage Types ─── */
+
+export interface CoolifyS3Storage {
+  uuid: string;
+  name: string;
+  description?: string | null;
+  endpoint: string;
+  bucket: string;
+  region: string;
+  is_usable?: boolean;
+  team_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NormalizedS3Storage {
+  uuid: string;
+  name: string;
+  description?: string;
+  endpoint: string;
+  bucket: string;
+  region: string;
+  is_usable?: boolean;
+  team_id?: number;
+  created_at?: string;
+  updated_at?: string;
+  // key/secret are NEVER included in responses
+}
+
+export interface CreateS3StorageBody {
+  name: string;
+  description?: string;
+  endpoint: string;
+  bucket: string;
+  region: string;
+  key: string;
+  secret: string;
+  is_usable?: boolean;
+}
+
+export interface CoolifyS3ValidateResult {
+  valid: boolean;
+  message?: string;
+}
+
+/* ─── Application Rollback Types ─── */
+
+export interface CoolifyRollbackImage {
+  tag: string;
+  created_at?: string;
+  is_current?: boolean;
+}
+
+export interface NormalizedRollbackImage {
+  tag: string;
+  created_at?: string;
+  is_current?: boolean;
+}
+
+export interface CoolifyRollbackImagesResponse {
+  current?: string | null;
+  images?: CoolifyRollbackImage[];
+}
+
+export interface NormalizedRollbackImagesResponse {
+  current?: string;
+  images: NormalizedRollbackImage[];
+}
+
+export interface CoolifyRollbackResponse {
+  message?: string;
+  deployment_uuid?: string;
+}
+
+
+/* ─── Notification Types ─── */
+
+export type NotificationChannel = 'email' | 'discord' | 'slack' | 'telegram' | 'pushover' | 'webhook';
+
+/**
+ * Channel-specific notification settings as returned by the Coolify API.
+ * Shape varies per channel; field names are `<channel>_<field>`.
+ * Values (webhook URLs, tokens, passwords) are NEVER included in MCP responses.
+ */
+export type CoolifyNotificationSettings = Record<string, unknown>;
+
+export interface NormalizedNotificationSettings {
+  channel: NotificationChannel;
+  enabled: boolean;
+  summary: string;
+  configured_fields: string[];
+}
+
+export interface UpdateNotificationBody {
+  [key: string]: string | number | boolean;
+}
+
+/* ─── Destination Types ─── */
+
+export type DestinationType = 'standalone' | 'swarm';
+
+export interface CoolifyDestination {
+  uuid: string;
+  name: string;
+  network: string;
+  type: DestinationType;
+  server_uuid?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NormalizedDestination {
+  uuid: string;
+  name: string;
+  network: string;
+  type: DestinationType;
+  server_uuid?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateDestinationBody {
+  name?: string;
+  network: string;
+  type?: DestinationType;
+}
+
+/* ─── Version Types ─── */
+
+export interface NormalizedVersion {
+  version: string;
+}

@@ -13,6 +13,14 @@ import type {
   CreateServiceBody,
   CreateDatabaseBody,
   EnvVarEntry,
+  CoolifyRollbackImagesResponse,
+  CoolifyRollbackResponse,
+  CoolifyS3Storage,
+  CoolifyS3ValidateResult,
+  CreateS3StorageBody,
+  UpdateNotificationBody,
+  CoolifyDestination,
+  CreateDestinationBody,
 } from './types.js';
 
 export class CoolifyClient {
@@ -393,6 +401,11 @@ export class CoolifyClient {
     return this.patch<unknown>(`/${prefix}/${resourceUuid}/scheduled-tasks/${taskUuid}`, body);
   }
 
+  async executeScheduledTask(resourceUuid: string, taskUuid: string, resourceType?: string): Promise<CoolifyResponse<unknown>> {
+    const prefix = resourceType === 'service' ? 'services' : 'applications';
+    return this.post<unknown>(`/${prefix}/${resourceUuid}/scheduled-tasks/${taskUuid}/execute`);
+  }
+
   // ─── Deployment Cancel ───
   async cancelDeployment(deploymentUuid: string): Promise<CoolifyResponse<unknown>> {
     return this.post<unknown>(`/deployments/${deploymentUuid}/cancel`);
@@ -405,6 +418,18 @@ export class CoolifyClient {
 
   async createBackupConfig(databaseUuid: string, body: unknown): Promise<CoolifyResponse<unknown>> {
     return this.post<unknown>(`/databases/${databaseUuid}/backups`, body);
+  }
+
+  async listDatabaseBackupExecutions(databaseUuid: string, scheduledBackupUuid: string, limit?: number): Promise<CoolifyResponse<unknown[]>> {
+    return this.get<unknown[]>(`/databases/${databaseUuid}/backups/${scheduledBackupUuid}/executions`, { limit });
+  }
+
+  async updateBackupConfig(databaseUuid: string, scheduledBackupUuid: string, body: unknown): Promise<CoolifyResponse<unknown>> {
+    return this.patch<unknown>(`/databases/${databaseUuid}/backups/${scheduledBackupUuid}`, body);
+  }
+
+  async runVolumeBackup(resourceUuid: string, resourceType: string, storageUuid: string): Promise<CoolifyResponse<unknown>> {
+    return this.post<unknown>(`/${resourceType}s/${resourceUuid}/storages/${storageUuid}/backups/run`);
   }
 
   // ─── Servers ───
@@ -453,6 +478,69 @@ export class CoolifyClient {
 
   async createStorage(resourceUuid: string, resourceType: string, body: unknown): Promise<CoolifyResponse<unknown>> {
     return this.post<unknown>(`/${resourceType}s/${resourceUuid}/storages`, body);
+  }
+
+  // ─── Application Rollback ───
+  async listApplicationRollbackImages(applicationUuid: string): Promise<CoolifyResponse<CoolifyRollbackImagesResponse>> {
+    return this.get<CoolifyRollbackImagesResponse>(`/applications/${applicationUuid}/rollback-images`);
+  }
+
+  async rollbackApplication(applicationUuid: string, commit: string): Promise<CoolifyResponse<CoolifyRollbackResponse>> {
+    return this.request<CoolifyRollbackResponse>({
+      method: 'POST',
+      path: `/applications/${applicationUuid}/rollback`,
+      body: { commit },
+      permission: 'deploy',
+    });
+  }
+
+  // ─── S3 Storages ───
+  async listS3Storages(): Promise<CoolifyResponse<CoolifyS3Storage[]>> {
+    return this.get<CoolifyS3Storage[]>('/s3-storages');
+  }
+
+  async createS3Storage(body: CreateS3StorageBody): Promise<CoolifyResponse<{ uuid?: string }>> {
+    return this.post<{ uuid?: string }>('/s3-storages', body);
+  }
+
+  async validateS3Storage(s3StorageUuid: string): Promise<CoolifyResponse<CoolifyS3ValidateResult>> {
+    return this.post<CoolifyS3ValidateResult>(`/s3-storages/${s3StorageUuid}/validate`);
+  }
+
+  // ─── Notifications ───
+  async getNotification(channel: string): Promise<CoolifyResponse<unknown>> {
+    return this.get<unknown>(`/notifications/${channel}`);
+  }
+
+  async updateNotification(channel: string, body: UpdateNotificationBody): Promise<CoolifyResponse<unknown>> {
+    return this.patch<unknown>(`/notifications/${channel}`, body);
+  }
+
+  // ─── Destinations ───
+  async listDestinations(): Promise<CoolifyResponse<CoolifyDestination[]>> {
+    return this.get<CoolifyDestination[]>('/destinations');
+  }
+
+  async getDestination(uuid: string): Promise<CoolifyResponse<CoolifyDestination>> {
+    return this.get<CoolifyDestination>(`/destinations/${uuid}`);
+  }
+
+  async createDestination(serverUuid: string, body: CreateDestinationBody): Promise<CoolifyResponse<unknown>> {
+    return this.post<unknown>(`/servers/${serverUuid}/destinations`, body);
+  }
+
+  // ─── Database & Service Logs ───
+  async getDatabaseLogs(uuid: string, lines?: number): Promise<CoolifyResponse<unknown>> {
+    return this.get<unknown>(`/databases/${uuid}/logs`, { lines: lines ?? this.config.logMaxLines });
+  }
+
+  async getServiceLogs(uuid: string, lines?: number): Promise<CoolifyResponse<unknown>> {
+    return this.get<unknown>(`/services/${uuid}/logs`, { lines: lines ?? this.config.logMaxLines });
+  }
+
+  // ─── Version ───
+  async getVersion(): Promise<CoolifyResponse<unknown>> {
+    return this.get<unknown>('/version');
   }
 }
 

@@ -34,6 +34,17 @@ import type {
   NormalizedStorageMount,
   CoolifyDomain,
   NormalizedDomain,
+  CoolifyRollbackImagesResponse,
+  NormalizedRollbackImagesResponse,
+  CoolifyS3Storage,
+  NormalizedS3Storage,
+  CoolifyS3ValidateResult,
+  CoolifyNotificationSettings,
+  NormalizedNotificationSettings,
+  NotificationChannel,
+  CoolifyDestination,
+  NormalizedDestination,
+  NormalizedVersion,
 } from './types.js';
 
 function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
@@ -325,4 +336,155 @@ export function normalizeDomain(domain: CoolifyDomain): NormalizedDomain {
 
 export function normalizeDomains(domains: CoolifyDomain[]): NormalizedDomain[] {
   return domains.map(normalizeDomain);
+}
+
+/* ─── Application Rollback Normalizers ─── */
+
+export function normalizeRollbackImagesResponse(
+  data: CoolifyRollbackImagesResponse,
+): NormalizedRollbackImagesResponse {
+  const images = Array.isArray(data.images) ? data.images : [];
+  return stripUndefined({
+    current: data.current ?? undefined,
+    images: images.map((img) =>
+      stripUndefined({
+        tag: img.tag,
+        created_at: img.created_at ?? undefined,
+        is_current: img.is_current ?? undefined,
+      }),
+    ),
+  });
+}
+
+/* ─── S3 Storage Normalizers ─── */
+
+export function normalizeS3Storage(storage: CoolifyS3Storage): NormalizedS3Storage {
+  return stripUndefined({
+    uuid: storage.uuid,
+    name: storage.name,
+    description: storage.description ?? undefined,
+    endpoint: storage.endpoint,
+    bucket: storage.bucket,
+    region: storage.region,
+    is_usable: storage.is_usable ?? undefined,
+    team_id: storage.team_id ?? undefined,
+    created_at: storage.created_at ?? undefined,
+    updated_at: storage.updated_at ?? undefined,
+  });
+}
+
+export function normalizeS3Storages(storages: CoolifyS3Storage[]): NormalizedS3Storage[] {
+  return storages.map(normalizeS3Storage);
+}
+
+export function normalizeS3ValidateResult(result: CoolifyS3ValidateResult): { valid: boolean; message?: string } {
+  return stripUndefined({
+    valid: result.valid,
+    message: result.message ?? undefined,
+  });
+}
+
+/* ─── Notification Normalizers ─── */
+
+export const NOTIFICATION_CHANNELS: readonly NotificationChannel[] = [
+  'email',
+  'discord',
+  'slack',
+  'telegram',
+  'pushover',
+  'webhook',
+] as const;
+
+/**
+ * Fields whose values are secrets (webhook URLs, tokens, passwords).
+ * They are never copied into normalized responses — only their presence may be surfaced.
+ */
+const SENSITIVE_NOTIFICATION_FIELDS = new Set([
+  'smtp_password',
+  'resend_api_key',
+  'discord_webhook_url',
+  'slack_webhook_url',
+  'telegram_token',
+  'pushover_api_token',
+  'pushover_user_key',
+  'webhook_url',
+]);
+
+function notificationEnabled(settings: CoolifyNotificationSettings, channel: string): boolean {
+  const value = settings[`${channel}_enabled`];
+  return value === true || value === 1 || value === 'true' || value === '1';
+}
+
+export function normalizeNotificationSettings(
+  settings: CoolifyNotificationSettings,
+  channel: NotificationChannel,
+): NormalizedNotificationSettings {
+  const keys = Object.keys(settings).filter((key) => key !== 'team_id');
+  const configuredFields = keys.filter((key) => {
+    const value = settings[key];
+    if (value === undefined || value === null || value === '' || value === false) {
+      return false;
+    }
+    if (SENSITIVE_NOTIFICATION_FIELDS.has(key)) {
+      return false;
+    }
+    return true;
+  });
+  const hasSensitiveConfigured = keys.some((key) => {
+    const value = settings[key];
+    return (
+      SENSITIVE_NOTIFICATION_FIELDS.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      value !== ''
+    );
+  });
+  const enabled = notificationEnabled(settings, channel);
+  const summary = `${channel} notifications ${enabled ? 'enabled' : 'disabled'}${
+    hasSensitiveConfigured ? ' — credentials configured' : ''
+  }`;
+  return stripUndefined({
+    channel,
+    enabled,
+    summary,
+    configured_fields: configuredFields,
+  });
+}
+
+export function normalizeNotificationSettingsList(
+  settingsByChannel: Partial<Record<NotificationChannel, CoolifyNotificationSettings | undefined>>,
+): NormalizedNotificationSettings[] {
+  const result: NormalizedNotificationSettings[] = [];
+  for (const channel of NOTIFICATION_CHANNELS) {
+    const settings = settingsByChannel[channel];
+    if (settings) {
+      result.push(normalizeNotificationSettings(settings, channel));
+    }
+  }
+  return result;
+}
+
+/* ─── Destination Normalizers ─── */
+
+export function normalizeDestination(destination: CoolifyDestination): NormalizedDestination {
+  return stripUndefined({
+    uuid: destination.uuid,
+    name: destination.name,
+    network: destination.network,
+    type: destination.type,
+    server_uuid: destination.server_uuid ?? undefined,
+    created_at: destination.created_at ?? undefined,
+    updated_at: destination.updated_at ?? undefined,
+  });
+}
+
+export function normalizeDestinations(destinations: CoolifyDestination[]): NormalizedDestination[] {
+  return destinations.map(normalizeDestination);
+}
+
+/* ─── Version Normalizers ─── */
+
+export function normalizeVersion(raw: unknown): NormalizedVersion {
+  const version = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  return { version };
 }
