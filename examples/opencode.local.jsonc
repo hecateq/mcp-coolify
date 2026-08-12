@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "coolify": {
+      "type": "local",
+      "command": ["node", "/path/to/coolify-mcp/dist/index.mjs"],
+      "environment": {
+        // ─── Required ────────────────────────────────────────
+        "COOLIFY_URL": "https://coolify.example.com",
+        "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
+
+        // ─── Optional: Scoped Tokens ─────────────────────────
+        // Override COOLIFY_API_TOKEN with least-privilege tokens
+        // "COOLIFY_READ_TOKEN": "{env:COOLIFY_READ_TOKEN}",
+        // "COOLIFY_SENSITIVE_TOKEN": "{env:COOLIFY_SENSITIVE_TOKEN}",
+        // "COOLIFY_WRITE_TOKEN": "{env:COOLIFY_WRITE_TOKEN}",
+        // "COOLIFY_DEPLOY_TOKEN": "{env:COOLIFY_DEPLOY_TOKEN}",
+
+        // ─── Operation Mode ──────────────────────────────────
+        // "read-only" (default) | "deploy-only" | "safe-write"
+        "COOLIFY_OPERATION_MODE": "read-only",
+
+        // ─── Allowlists (Optional) ───────────────────────────
+        // Comma-separated UUIDs to restrict access
+        // "COOLIFY_ALLOWED_PROJECT_UUIDS": "uuid1,uuid2",
+        // "COOLIFY_ALLOWED_ENVIRONMENT_UUIDS": "uuid1,uuid2",
+        // "COOLIFY_ALLOWED_RESOURCE_UUIDS": "uuid1,uuid2",
+
+        // ─── Production Protection (Optional) ────────────────
+        // "COOLIFY_PRODUCTION_ENV_NAMES": "production,prod",
+        // "COOLIFY_DENY_PRODUCTION_MUTATIONS": "true",
+        // "COOLIFY_ALLOW_PRODUCTION_DEPLOY": "false",
+        // "COOLIFY_ALLOW_STOP": "false",
+        // "COOLIFY_ALLOW_ENV_WRITE": "false",
+
+        // ─── Logging ─────────────────────────────────────────
+        // "COOLIFY_LOG_MAX_LINES": "200",
+        // "LOG_LEVEL": "info"
+      }
+    }
+  }
+}

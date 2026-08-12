@@ -1,0 +1,313 @@
+export interface ToolRegistryEntry {
+  name: string;
+  description: string;
+  readOnly: boolean;
+  destructive: boolean;
+  idempotent: boolean;
+}
+
+const toolRegistry: ToolRegistryEntry[] = [
+  {
+    name: 'coolify_health',
+    description: 'Check Coolify API and MCP server connectivity',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_projects',
+    description: 'List all Coolify projects with optional name filter',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_project',
+    description: 'Get a single project by UUID with environments and resource counts',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_resources',
+    description: 'List all resources with filters',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_resource',
+    description: 'Get a single resource detail by UUID and type',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_project_overview',
+    description: 'High-level project overview with health summary',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_deployments',
+    description: 'List deployments with filters',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_deployment',
+    description: 'Get deployment detail by UUID',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_application_logs',
+    description: 'Get application logs with configurable line count',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_environment_variables',
+    description: 'List env vars for a resource — values NEVER returned',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_deploy',
+    description: 'Deploy a resource (GET or POST with force)',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_restart',
+    description: 'Restart a resource',
+    readOnly: false,
+    destructive: true,
+    idempotent: false,
+  },
+  {
+    name: 'coolify_start',
+    description: 'Start a stopped resource',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_stop',
+    description: 'Stop a resource — disabled by default',
+    readOnly: false,
+    destructive: true,
+    idempotent: false,
+  },
+  {
+    name: 'coolify_set_environment_variable',
+    description: 'Set a single env var — disabled by default',
+    readOnly: false,
+    destructive: true,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_project',
+    description: 'Create a new project',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_environment',
+    description: 'Create a new environment within a project',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_application',
+    description: 'Create a new application in a project environment',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_service',
+    description: 'Create a new service in a project environment',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_database',
+    description: 'Create a new database — passwords NEVER returned',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_set_environment_variables',
+    description: 'Set multiple env vars in bulk (1-50)',
+    readOnly: false,
+    destructive: true,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_github_apps',
+    description: 'List GitHub Apps connected to Coolify',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_repositories',
+    description: 'List repositories accessible via a GitHub App',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_branches',
+    description: 'List branches of a GitHub repository',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_scheduled_tasks',
+    description: 'List scheduled tasks for an application or service',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_task_executions',
+    description: 'Get execution history for a scheduled task',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_scheduled_task',
+    description: 'Create a scheduled task (cron job)',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_update_scheduled_task',
+    description: 'Update a scheduled task',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_cancel_deployment',
+    description: 'Cancel a queued or in-progress deployment',
+    readOnly: false,
+    destructive: false,
+    idempotent: false,
+  },
+  {
+    name: 'coolify_list_database_backups',
+    description: 'List backup configurations and executions for a database',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_backup_config',
+    description: 'Create a backup configuration for a database',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_servers',
+    description: 'List all servers connected to Coolify',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_server',
+    description: 'Get a single server detail by UUID',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_server_resources',
+    description: 'List resources associated with a server',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_server_domains',
+    description: 'List domains associated with a server',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_get_current_team',
+    description: 'Get the current team context',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_team_members',
+    description: 'List members of the current team — emails redacted',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_list_storages',
+    description: 'List storage mounts for a resource',
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_update_application_config',
+    description: 'Update application configuration — PATCH semantics',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_update_database_config',
+    description: 'Update database configuration — PATCH semantics',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_validate_server',
+    description: 'Validate server connectivity and configuration',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+  {
+    name: 'coolify_create_storage',
+    description: 'Create a storage mount for a resource',
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+  },
+];
+
+let registry: ToolRegistryEntry[] | null = null;
+
+export function getToolRegistry(): ToolRegistryEntry[] {
+  if (!registry) {
+    registry = toolRegistry;
+  }
+  return registry;
+}
