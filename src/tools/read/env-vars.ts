@@ -7,23 +7,12 @@ import { logger } from '../../observability/logger.js';
 import type { CoolifyEnvVar } from '../../coolify/types.js';
 
 export const inputSchema = z.object({
-  application_uuid: coolifyResourceIdSchema.optional()
-    .describe('Application UUID (use for application env vars)'),
+  resource_uuid: coolifyResourceIdSchema.describe('Resource UUID'),
   resource_type: z
     .enum(['application', 'service', 'database'])
-    .optional()
-    .describe('Resource type (allows reading env vars from services and databases too)'),
-  resource_uuid: coolifyResourceIdSchema.optional()
-    .describe('Resource UUID (used with resource_type for non-application resources)'),
-}).refine(
-  (data) => {
-    if (data.resource_type && !data.resource_uuid) {
-      return false;
-    }
-    return true;
-  },
-  { message: 'resource_uuid is required when resource_type is specified' },
-);
+    .describe('Resource type: application, service, or database'),
+  environment_name: z.string().optional().describe('Environment name (informational)'),
+});
 
 export const annotations = {
   readOnlyHint: true,
@@ -33,56 +22,34 @@ export const annotations = {
 };
 
 export async function handler(input: {
-  application_uuid?: string;
-  resource_type?: string;
-  resource_uuid?: string;
+  resource_uuid: string;
+  resource_type: 'application' | 'service' | 'database';
+  environment_name?: string;
 }) {
   const client = getCoolifyClient();
   const startTime = Date.now();
 
   try {
-    let response: { data: unknown[] };
-    let resourceLabel: string;
-
-    if (input.resource_type && input.resource_uuid) {
-      // Use resource_type + resource_uuid for non-application resources
-      switch (input.resource_type) {
-        case 'service':
-          response = await client.getServiceEnvs(input.resource_uuid);
-          resourceLabel = `service ${input.resource_uuid}`;
-          break;
-        case 'database':
-          response = await client.getDatabaseEnvs(input.resource_uuid);
-          resourceLabel = `database ${input.resource_uuid}`;
-          break;
-        case 'application':
-        default:
-          response = await client.getApplicationEnvs(input.resource_uuid);
-          resourceLabel = `application ${input.resource_uuid}`;
-          break;
-      }
-    } else {
-      // Backward-compatible: use application_uuid
-      const uuid = input.application_uuid;
-      if (!uuid) {
-        throw new CoolifyError('Either application_uuid or resource_type+resource_uuid must be provided', 'VALIDATION_ERROR', 400, false);
-      }
-      response = await client.getApplicationEnvs(uuid);
-      resourceLabel = `application ${uuid}`;
-    }
-
+    // Resource type -> path resolution lives in the client (shared with the
+    // set_env_vars tools via the same envsPath mapping).
+    const response = await client.getEnvs(input.resource_uuid, input.resource_type);
     const envVars = normalizeEnvVars((response.data || []) as CoolifyEnvVar[]);
     const durationMs = Date.now() - startTime;
 
     logger.info(
-      { resourceLabel, count: envVars.length, durationMs },
+      {
+        resourceUuid: input.resource_uuid,
+        resourceType: input.resource_type,
+        count: envVars.length,
+        durationMs,
+      },
       'Listed environment variables (values redacted)',
     );
 
     const content = JSON.stringify(
       {
         ok: true,
-        summary: `Found ${envVars.length} environment variable(s) — values are never returned`,
+        summary: `${envVars.length} environment variable(s) for ${input.resource_type} ${input.resource_uuid}`,
         data: envVars,
         meta: { durationMs, note: 'Values are redacted for security. Only keys and metadata shown.' },
       },

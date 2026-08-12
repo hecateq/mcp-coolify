@@ -327,20 +327,28 @@ export class CoolifyClient {
   }
 
   async setEnvsBulk(uuid: string, resourceType: string, envs: EnvVarEntry[]): Promise<CoolifyResponse<unknown>> {
-    let path: string;
+    return this.patch<unknown>(this.envsPath(uuid, resourceType, 'envs/bulk'), { envs });
+  }
+
+  async getEnvs(uuid: string, resourceType: string): Promise<CoolifyResponse<unknown[]>> {
+    return this.get<unknown[]>(this.envsPath(uuid, resourceType, 'envs'));
+  }
+
+  private envsPath(uuid: string, resourceType: string, suffix: 'envs' | 'envs/bulk'): string {
+    let prefix: string;
     switch (resourceType) {
       case 'service':
-        path = `/services/${uuid}/envs/bulk`;
+        prefix = 'services';
         break;
       case 'database':
-        path = `/databases/${uuid}/envs/bulk`;
+        prefix = 'databases';
         break;
       case 'application':
       default:
-        path = `/applications/${uuid}/envs/bulk`;
+        prefix = 'applications';
         break;
     }
-    return this.patch<unknown>(path, { envs });
+    return `/${prefix}/${uuid}/${suffix}`;
   }
 
   async getServiceEnvs(uuid: string): Promise<CoolifyResponse<unknown[]>> {

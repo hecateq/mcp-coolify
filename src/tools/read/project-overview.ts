@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { coolifyResourceIdSchema } from '../../shared/schemas.js';
 import { getCoolifyClient } from '../../coolify/client.js';
-import { normalizeProject, normalizeEnvironments, normalizeResources, normalizeDeployments } from '../../coolify/normalizers.js';
+import { normalizeProject, normalizeEnvironments, normalizeDeployments } from '../../coolify/normalizers.js';
+import { fetchFilteredResources, classifyResourceStatus } from '../../coolify/resource-queries.js';
 import { CoolifyError } from '../../coolify/errors.js';
 import { logger } from '../../observability/logger.js';
-import type { CoolifyProject, CoolifyEnvironment, CoolifyResource, CoolifyDeployment, ProjectOverview } from '../../coolify/types.js';
+import type { CoolifyProject, CoolifyEnvironment, CoolifyDeployment, ProjectOverview } from '../../coolify/types.js';
 
 export const inputSchema = z.object({
   project_uuid: coolifyResourceIdSchema.describe('Project UUID'),
@@ -20,21 +21,21 @@ export const annotations = {
 export async function handler(input: { project_uuid: string }) {
   const client = getCoolifyClient();
   const startTime = Date.now();
-
   try {
-    const [projectRes, envRes, resourcesRes, deploymentsRes] = await Promise.all([
+    const [projectRes, envRes, resources, deploymentsRes] = await Promise.all([
       client.getProject(input.project_uuid),
       client.getProjectEnvironments(input.project_uuid),
-      client.listResources(),
+      fetchFilteredResources(client, { project_uuid: input.project_uuid }),
       client.listDeployments(),
     ]);
 
     const project = normalizeProject(projectRes.data as CoolifyProject);
     const environments = normalizeEnvironments(envRes.data as CoolifyEnvironment[]);
-    const allResources = normalizeResources((resourcesRes.data || []) as CoolifyResource[]);
     const allDeployments = normalizeDeployments((deploymentsRes.data || []) as CoolifyDeployment[]);
 
-    const projectResources = allResources.filter((r) => r.project_uuid === input.project_uuid);
+    // `resources` is already filtered to this project by the shared helper
+    // (project_uuid is resolved via the environment relationship).
+    const projectResources = resources;
 
     const envsWithCounts = environments.map((env) => ({
       ...env,
@@ -45,19 +46,21 @@ export async function handler(input: { project_uuid: string }) {
       .filter((d) => projectResources.some((r) => r.uuid === d.resource_uuid))
       .slice(0, 5);
 
-    const running = projectResources.filter((r) => r.status === 'running').length;
-    const stopped = projectResources.filter((r) => r.status === 'stopped').length;
-    const degraded = projectResources.filter(
-      (r) => r.status === 'degraded' || r.status === 'exited',
-    ).length;
-    const failedDeployments = recentDeployments.filter(
-      (d) => d.status === 'failed',
-    ).length;
+    const running = projectResources.filter((r) => classifyResourceStatus(r.status) === 'running').length;
+    const stopped = projectResources.filter((r) => classifyResourceStatus(r.status) === 'stopped').length;
+    const degraded = projectResources.filter((r) => classifyResourceStatus(r.status) === 'degraded').length;
+    const failedDeployments = recentDeployments.filter((d) => d.status === 'failed').length;
 
     const overview: ProjectOverview = {
       project,
       environments: envsWithCounts,
-      resources: projectResources,
+      // Summary tool: at most { uuid, name, type, status } per resource.
+      resources: projectResources.map((r) => ({
+        uuid: r.uuid,
+        name: r.name,
+        type: r.type,
+        status: r.status,
+      })),
       recentDeployments,
       summary: {
         totalResources: projectResources.length,

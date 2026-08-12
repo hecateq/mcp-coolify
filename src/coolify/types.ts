@@ -32,6 +32,7 @@ export interface CoolifyResource {
   type: ResourceType;
   status: ResourceStatus;
   project_uuid?: string;
+  environment_id?: number;
   environment_uuid?: string;
   environment_name?: string;
   fqdn?: string;

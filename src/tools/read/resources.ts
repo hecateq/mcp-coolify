@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { coolifyResourceIdSchema } from '../../shared/schemas.js';
 import { getCoolifyClient } from '../../coolify/client.js';
-import { normalizeResources } from '../../coolify/normalizers.js';
+import { fetchFilteredResources } from '../../coolify/resource-queries.js';
 import { CoolifyError } from '../../coolify/errors.js';
 import { logger } from '../../observability/logger.js';
-import type { CoolifyResource } from '../../coolify/types.js';
 
 export const inputSchema = z.object({
   project_uuid: coolifyResourceIdSchema.optional().describe('Filter by project UUID'),
@@ -38,35 +37,31 @@ export async function handler(input: {
   const startTime = Date.now();
 
   try {
-    let resources = await fetchAllResources(client);
-
-    if (input.project_uuid) {
-      resources = resources.filter((r) => r.project_uuid === input.project_uuid);
-    }
-    if (input.environment_uuid) {
-      resources = resources.filter((r) => r.environment_uuid === input.environment_uuid);
-    }
-    if (input.resource_type) {
-      resources = resources.filter((r) => r.type === input.resource_type);
-    }
-    if (input.status) {
-      resources = resources.filter((r) => r.status === input.status);
-    }
-    if (input.search) {
-      const search = input.search.toLowerCase();
-      resources = resources.filter((r) => r.name.toLowerCase().includes(search));
-    }
-
-    const normalized = normalizeResources(resources);
+    const normalized = await fetchFilteredResources(client, {
+      project_uuid: input.project_uuid,
+      environment_uuid: input.environment_uuid,
+      resource_type: input.resource_type,
+      status: input.status,
+      search: input.search,
+    });
     const durationMs = Date.now() - startTime;
 
-    logger.info({ count: normalized.length, durationMs }, 'Listed resources');
+    // List tools return a compact summary per resource: uuid, name, type, status.
+    // Heavy fields (domain/ports/compose bodies) belong to the get_* tools.
+    const summary = normalized.map((r) => ({
+      uuid: r.uuid,
+      name: r.name,
+      type: r.type,
+      status: r.status,
+    }));
+
+    logger.info({ count: summary.length, durationMs }, 'Listed resources');
 
     const content = JSON.stringify(
       {
         ok: true,
-        summary: `Found ${normalized.length} resource(s)`,
-        data: normalized,
+        summary: `Found ${summary.length} resource(s)`,
+        data: summary,
         meta: { durationMs, truncated: false },
       },
       null,
@@ -106,13 +101,3 @@ export async function handler(input: {
   }
 }
 
-async function fetchAllResources(
-  client: ReturnType<typeof getCoolifyClient>,
-): Promise<CoolifyResource[]> {
-  const response = await client.listResources();
-  const data = response.data;
-  if (Array.isArray(data)) {
-    return data as CoolifyResource[];
-  }
-  return [];
-}
