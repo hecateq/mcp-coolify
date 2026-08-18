@@ -67,6 +67,7 @@ mcp-coolify/
 ├── dashboard/              # React + Vite UI submodule (private, not published)
 ├── docs/                   # English documentation
 │   ├── SETUP-GUIDE.md
+│   ├── TOOL-INVENTORY.md
 │   ├── OPENSCODE-ENTEGRASYON.md  (filename is Turkish legacy; content is English)
 │   ├── COOLIFY-API-CAPABILITY-MATRIX.md
 │   ├── VALIDATION-SCHEMA.md
