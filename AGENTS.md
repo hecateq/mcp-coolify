@@ -1,0 +1,226 @@
+# AI Coding Assistant — Save & Restore Instructions
+
+> **Audience:** AI coding assistants (GitHub Copilot, Claude, Cursor, opencode, Aider, etc.) working on this repository.
+> **Purpose:** A persistent recovery document so any AI session that joins this repo cold — without prior conversation history, with no clue what this codebase is, and without reading every file — can get up to speed in under 60 seconds and start producing correct, scoped work.
+
+> ⚠️ **IMPORTANT**: If you are an AI assistant reading this file, treat it as the highest-priority context after the user's current message. The project rules below are mandatory and override generic coding preferences you may have been trained on.
+
+---
+
+## 0. The 30-second elevator pitch
+
+| | |
+|---|---|
+| **Name** | `@imhecateq/mcp-coolify` |
+| **What** | A **Model Context Protocol (MCP) server** that exposes Coolify (self-hosted PaaS) infrastructure to AI agents with a security/policy layer |
+| **Why** | Coolify's built-in MCP is a raw pass-through. This server adds `operation-mode`, scoped tokens, allowlists, production safeguards on top |
+| **Audience** | DevOps engineers and AI agent users managing Coolify deployments |
+| **GitHub** | <https://github.com/hecateq/mcp-coolify> |
+| **npm** | `@imhecateq/mcp-coolify` (scoped; do NOT use `@hecateq/*` — that scope requires org membership) |
+| **CLI bin** | `mcp-coolify` (after `npm install -g`) |
+| **License** | MIT |
+
+---
+
+## 1. Hard rules — DO NOT violate
+
+These are non-negotiable invariants. Violating any of them is a blocking error.
+
+1. **Package name is `@imhecateq/mcp-coolify`**, NOT `@hecateq/mcp-coolify`. The `@hecateq` npm scope requires membership in the `hecateq` npm organization, which the maintainer does not have. If you see code or docs using `@hecateq/mcp-coolify`, **fix it to `@imhecateq/mcp-coolify`**.
+
+2. **Language of documentation and code comments: English.** Turkish text MUST NOT appear in any documentation or inline code comments. Some shell-script comments in `.env.example` and bash snippets MAY remain in Turkish because they live inside code blocks (glossary rule: code blocks are untouched).
+
+3. **All user-facing documentation** (README, docs/, reports/, root-level `*.md` except glossary, code blocks untouched) MUST be in English.
+
+4. **Build output is `dist/index.js`**, **NOT** `dist/index.mjs`. The CLI has a shebang and is ESM-formatted but the filename ends in `.js`. If you write docs, scripts, or examples that reference the entrypoint, use `dist/index.js`.
+
+5. **The `bin` field** is `mcp-coolify` (unscoped on purpose so `npm install -g` registers the binary as `mcp-coolify`).
+
+6. **JSON must be valid JSON in `package.json`.** The first version of this file had an array-wrapped string on the `name` field. Run `node -e "JSON.parse(require('fs').readFileSync('package.json'))"` to verify before committing.
+
+7. **One `license` key only.** A duplicate `license` field in `package.json` causes tsup to log warnings. The build still passes but is not clean.
+
+8. **No `as any`, `@ts-ignore`, `@ts-expect-error`**, empty catch blocks, deleted failing tests, or other bypasses. If lint/typecheck/test would otherwise fail, fix the underlying issue.
+
+9. **Do not add unnecessary dependencies.** If a feature can be implemented with the existing 9 runtime deps (`@fastify/cors`, `@fastify/static`, `@modelcontextprotocol/sdk`, `dotenv`, `express`, `fastify`, `pino`, `pino-pretty`, `uuid`, `zod`), do not add a new one.
+
+10. **Do not change the `files` allowlist** in `package.json` without explicit user request. It currently ships `dist`, `README.md`, `LICENSE` only.
+
+---
+
+## 2. Project structure
+
+```text
+mcp-coolify/
+├── src/                    # TypeScript source
+│   ├── index.ts            # CLI entrypoint (shebang + main())
+│   ├── server/             # MCP server factory
+│   ├── transports/         # stdio + http transports
+│   ├── tools/              # ~42 MCP tool handlers (one file each)
+│   ├── coolify/            # Coolify REST API client + types
+│   ├── config/             # Environment config loader
+│   ├── observability/      # Pino logger setup
+│   ├── security/           # Operation-mode guards, allowlist, prod guards
+│   ├── dashboard/          # Fastify static dashboard server
+│   └── shared/             # Errors, types
+├── tests/                  # Vitest unit + integration tests
+├── dashboard/              # React + Vite UI submodule (private, not published)
+├── docs/                   # English documentation
+│   ├── SETUP-GUIDE.md
+│   ├── OPENSCODE-ENTEGRASYON.md  (filename is Turkish legacy; content is English)
+│   ├── COOLIFY-API-CAPABILITY-MATRIX.md
+│   ├── VALIDATION-SCHEMA.md
+│   └── GLOSSARY.md                  # Translation glossary — keep this bilingual as reference
+├── reports/                # Implementation reports (English)
+├── examples/               # opencode.local.jsonc, opencode.remote.jsonc
+├── dist/                   # Build output (git-ignored; generated by `npm run build`)
+├── Dockerfile              # Container build (runs HTTP transport)
+├── package.json            # @imhecateq/mcp-coolify (DO NOT use @hecateq scope)
+├── LICENSE                 # MIT
+└── README.md               # Public-facing English README
+```
+
+---
+
+## 3. Workflow expectations
+
+### Validation order (run before any commit)
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # ESLint on src/ + tests/
+npm test            # Vitest, must pass 221/221
+npm run build       # tsup --format esm --dts --clean
+npm pack --dry-run  # Inspect the tarball (5 files expected)
+npm publish --dry-run --access public  # Final smoke test
+```
+
+### Pre-publish hook
+
+The `prepublishOnly` npm script runs `lint && typecheck && test && build`. Any local publish attempt will execute these in order. Do not bypass this hook.
+
+### Commit style
+
+Follow the existing pattern visible in `git log --oneline`:
+- `feat: <description>`
+- `docs: <description>`
+- `chore: <description>`
+- `fix: <description>`
+- `refactor: <description>`
+- `test: <description>`
+
+Keep commits atomic. One logical change per commit.
+
+### Branch / PR conventions (when working with GitHub)
+
+- Default branch is `main`. Never push directly without user permission.
+- Use feature branches for non-trivial work: `feat/<short-name>`, `fix/<short-name>`.
+- PR titles match commit style: e.g. `chore: prepare npm publish`.
+
+---
+
+## 4. Domain concepts (the unique-to-this-project vocabulary)
+
+| Term | Meaning |
+|------|---------|
+| **Operation mode** | Top-level guard: `read-only` (default), `deploy-only`, `safe-write`. Determines what mutation tools are reachable. Defined by `COOLIFY_OPERATION_MODE`. |
+| **Allowlist** | Comma-separated UUID filter for projects / environments / resources. A tool call is rejected if its UUID is not in the list. Empty list = no filtering. |
+| **Scoped token** | Per-operation Coolify API token (`COOLIFY_READ_TOKEN`, `COOLIFY_SENSITIVE_TOKEN`, `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`). Least-privilege selection; falls back to `COOLIFY_API_TOKEN`. |
+| **Production safeguard** | A belt-and-braces policy that blocks ALL mutations targeting an environment whose name is in `COOLIFY_PRODUCTION_ENV_NAMES` (default: `production,prod`). |
+| **Tool** | An MCP-exposed function. ~42 tools cover: deployments, servers, projects, apps, databases, services, backups, scheduled tasks, storage, destinations, S3 storages, notifications. |
+| **Transport** | How the MCP client connects: `stdio` (default, for local development with opencode/Claude/Cursor) or `http` (for remote deployments, requires `MCP_SERVER_API_KEY`). |
+| **Dashboard** | Optional React UI bundled via `dashboard/`. Served by Fastify static at `/dashboard` when `MCP_DASHBOARD_ENABLED=true`. |
+| **Coolify built-in MCP** | The MCP server that Coolify itself ships. Direct API passthrough, no guardrails. **This project (`mcp-coolify`) is the alternative.** |
+
+---
+
+## 5. Quick commands reference
+
+| Command | Purpose |
+|---------|---------|
+| `npm run build` | Compile TypeScript → ESM in `dist/` |
+| `npm run dev` | Watch-mode dev (`tsx watch src/index.ts`) |
+| `npm start` | Run the built server (`node dist/index.js`) |
+| `npm test` | Run vitest |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | tsc --noEmit |
+| `npm run build:all` | Build root + dashboard submodule |
+| `npm run format` | Prettier write |
+| `npm publish --access public` | Publish to npm (requires authenticated npm token + possibly 2FA OTP) |
+| `npm run build:dashboard` | Build only the React dashboard |
+
+---
+
+## 6. Common AI error patterns to avoid
+
+These mistakes have been observed in past sessions. Do not repeat them.
+
+1. ❌ **Using `@hecateq/mcp-coolify`** as the package name (the scope is not available).
+   ✅ Use `@imhecateq/mcp-coolify`.
+
+2. ❌ **Referencing `dist/index.mjs`** in docs/examples.
+   ✅ Use `dist/index.js`.
+
+3. ❌ **Adding new dependencies** when `zod` or `fastify` already provides the function.
+   ✅ Reuse existing deps. 9 runtime deps is the budget.
+
+4. ❌ **Writing Turkish comments** in new documentation or `.md` files.
+   ✅ English for all prose; keep code-block comments as-is.
+
+5. ❌ **Bypassing `prepublishOnly`** to skip lint/typecheck/test.
+   ✅ Fix the underlying failure. Never use `--ignore-scripts` in this repo.
+
+6. ❌ **Editing the published tarball** (`dist/`) directly.
+   ✅ Edit `src/*.ts`, then `npm run build`.
+
+7. ❌ **Forgetting to update `package-lock.json`** after dep changes.
+   ✅ Run `npm install` after editing `package.json` deps.
+
+8. ❌ **Creating a CHANGELOG / migration doc** when not asked.
+   ✅ Files in this repo exist only because the project needs them. Don't add speculative ones.
+
+---
+
+## 7. If you get stuck
+
+1. **Read `README.md` end-to-end.** Most project questions are answered there.
+2. **Read `docs/SETUP-GUIDE.md`** for environment / config / Docker / verification.
+3. **Read `docs/COOLIFY-API-CAPABILITY-MATRIX.md`** for which Coolify endpoints are exposed.
+4. **Read `docs/VALIDATION-SCHEMA.md`** for input validation rules.
+5. **Read `docs/GLOSSARY.md`** if you encounter unfamiliar Turkish terms in legacy docs.
+6. **Search the codebase** with grep before assuming something isn't implemented. This project exposes ~42 tools; many Coolify endpoints ARE wired up.
+
+---
+
+## 8. When proposing changes
+
+- Match the existing file structure (one tool per file, lowercase kebab-case names).
+- Match the existing test style (Vitest + nock for HTTP mocks).
+- Match the existing error code style (`UPPER_SNAKE_CASE`, defined in `src/shared/errors.ts`).
+- Run the validation sequence above before declaring work complete.
+- Do not refactor unrelated code while fixing a bug or adding a feature.
+
+---
+
+## 9. Project memory manifest
+
+The `.memory-manifest.json` file is the project's memory tracker. When you make meaningful progress, propose updates to it (do not edit unprompted). The manifest tracks durable project state.
+
+---
+
+## 10. License & credits
+
+MIT (c) 2025 hecateq / imhecateq. See `LICENSE`.
+
+Built on top of:
+- `@modelcontextprotocol/sdk` (official MCP SDK)
+- `fastify` + `@fastify/cors` + `@fastify/static` (HTTP transport + dashboard)
+- `pino` (structured logging)
+- `zod` (input validation)
+- `dotenv` (env loading)
+- `uuid` (correlation IDs)
+- `express` (legacy compat shim — present for compatibility; fastify is the primary HTTP server)
+
+---
+
+> **TL;DR for AI assistants:** This is `@imhecateq/mcp-coolify`. Build with `npm run build`. Test with `npm test`. Publish with `npm publish --access public`. Everything in English. Don't use `@hecateq/*` scope. Don't write `dist/index.mjs`. Don't add new deps. Don't bypass lint/typecheck/test.

@@ -1,201 +1,176 @@
-# 🔌 Coolify MCP Server — OpenCode Entegrasyon Rehberi
+# 🔌 Coolify MCP Server — OpenCode Integration Guide
 
-> **Türkçe — Teknik ve samimi bir dille, projeye yeni katılan herkesin anlayabileceği şekilde hazırlanmıştır.**
+> **English — Written in a technical yet approachable tone so anyone new to the project can understand it.**
 
-Bu doküman, **Coolify MCP Server**'ı OpenCode'dan kullanmak için bilmeniz gereken her şeyi adım adım anlatır. 42 MCP aracı (tool) ile Coolify altyapınızı AI asistanınıza emanet edebilir, güvenli bir şekilde deploy edebilir ve izleyebilirsiniz.
+This document walks you through everything you need to know to use **Coolify MCP Server** from OpenCode. With 42 MCP tools you can entrust your Coolify infrastructure to your AI assistant, deploy safely, and monitor everything.
 
 ---
 
-## 📋 İçindekiler
+## 📋 Table of Contents
 
-1. [Proje Özellikleri](#1-proje-özellikleri)
-2. [OpenCode'a Eklendiğinde Yapılabilecek İşlemler](#2-opencodea-eklendiğinde-yapılabilecek-işlemler)
-3. [OpenCode Yapılandırması](#3-opencode-yapılandırması)
-4. [Yetkiler ve Operation Mode'lar](#4-yetkiler-ve-operation-modelar)
-5. [Örnek Kullanım Senaryoları](#5-örnek-kullanım-senaryoları)
-6. [42 Tool Kataloğu](#6-42-tool-kataloğu)
-7. [Güvenlik](#7-güvenlik)
-8. [Kurulum (Hızlı Başlangıç)](#8-kurulum-hızlı-başlangıç)
+1. [Project Features](#1-project-features)
+2. [What You Can Do When Added to OpenCode](#2-what-you-can-do-when-added-to-opencode)
+3. [OpenCode Configuration](#3-opencode-configuration)
+4. [Permissions and Operation Modes](#4-permissions-and-operation-modes)
+5. [Example Usage Scenarios](#5-example-usage-scenarios)
+6. [42-Tool Catalog](#6-42-tool-catalog)
+7. [Security](#7-security)
+8. [Setup (Quick Start)](#8-setup-quick-start)
 9. [Dashboard](#9-dashboard)
 
 ---
 
-## 1. Proje Özellikleri
+## 1. Project Features
 
-Coolify MCP Server, bir AI asistanının (OpenCode, Claude, Copilot, Cursor vb.) Coolify altyapınızı güvenli bir şekilde yönetmesini sağlayan **production-grade** bir MCP (Model Context Protocol) sunucusudur.
+Coolify MCP Server is a **production-grade** MCP (Model Context Protocol) server that enables an AI assistant (OpenCode, Claude, Copilot, Cursor, etc.) to manage your Coolify infrastructure safely.
 
-### 🚀 42 MCP Tool'u
+### 🚀 42 MCP Tools
 
-Sunucuda kayıtlı **42 adet MCP aracı** bulunur:
+The server exposes **42 MCP tools**:
 
-| Kategori | Adet | Açıklama |
-|----------|:----:|----------|
-| **Read-only araçlar** | 25 | Sadece okuma — liste, getir, sorgula |
-| **Action araçları** | 17 | Deploy, restart, oluşturma, güncelleme |
+| Category | Count | Description |
+|----------|:----:|-------------|
+| **Read-only tools** | 25 | Read-only — list, get, query |
+| **Action tools** | 17 | Deploy, restart, create, update |
 
-Bu araçlar 10 farklı domain'e ayrılmıştır: core read, GitHub keşfi, scheduled task'ler, deployment'lar, backup'lar, server'lar, takımlar, konfigürasyon, storage ve environment variable'lar.
+These tools are split across 10 domains: core read, GitHub discovery, scheduled tasks, deployments, backups, servers, teams, configuration, storage, and environment variables.
 
-### 🔐 3 Operation Mode
+### 🔐 3 Operation Modes
 
-| Mod | Ne işe yarar? |
-|-----|---------------|
-| `read-only` | Sadece izleme — production'da bile güvenle kullanılır |
-| `deploy-only` | Oku + deploy et — yazma işlemleri engellenir |
-| `safe-write` | Tüm yetkiler — stop ve env yazma ek izin gerektirir |
+| Mode | What It Does |
+|------|--------------|
+| `read-only` | Monitoring only — safe to use even in production |
+| `deploy-only` | Read + deploy — write operations are blocked |
+| `safe-write` | Full permissions — stop and env write require extra consent |
 
 ### 🩸 Secret Redaction
-
-- Environment variable **VALUE'ları ASLA döndürülmez** — sadece KEY'ler ve metadata görünür
-- Log'lar `Bearer` token, `password`, `secret`, `api_key` gibi kalıplara karşı taranır ve otomatik redakte edilir
-- SSH private key, database URL, email adresleri gibi hassas alanlar `[REDACTED]` olarak döner
-- Audit event'leri asla secret değer içermez
+- Environment variable **VALUES are NEVER returned** —
+- Sensitive fields like SSH private keys, database URLs, and email addresses are returned as `[REDACTED]`
+- Audit events never contain secret values
 
 ### 🛡️ Production Guard
+Mutations in production are **FULLY BLOCKED by default**.
 
-Production ortamında mutation'lar **varsayılan olarak TAMAMEN ENGELLENİR**.
+| Default | Value | Effect |
+|---------|-------|--------|
+| `COOLIFY_DENY_PRODUCTION_MUTATIONS` | `true` | In production, no mutation works — not even deploy |
+| `COOLIFY_ALLOW_PRODUCTION_DEPLOY` | `false` | Specific permission for production deploys |
+| `COOLIFY_ALLOW_STOP` | `false` | Stop operations are globally disabled |
+| `COOLIFY_ALLOW_ENV_WRITE` | `false` | Env var writes are globally disabled |
 
-| Varsayılan | Değer | Etkisi |
-|-----------|-------|--------|
-| `COOLIFY_DENY_PRODUCTION_MUTATIONS` | `true` | Production'da deploy dahil hiçbir mutation çalışmaz |
-| `COOLIFY_ALLOW_PRODUCTION_DEPLOY` | `false` | Production deploy'a özel izin |
-| `COOLIFY_ALLOW_STOP` | `false` | Stop işlemi globalde engelli |
-| `COOLIFY_ALLOW_ENV_WRITE` | `false` | Env var yazma globalde engelli |
+Production environments are recognized by names matching `production,prod` (case-insensitive).
 
-Production ortamları varsayılan olarak `production,prod` isimleriyle tanınır (case-insensitive).
+### 🎟️ Least-Privilege Token Selection
+Instead of a single master token, you can define **5 scoped tokens**:
 
-### 🎟️ Least-Privilege Token Seçimi
-
-Tek bir master token yerine **5 farklı scopeta token** tanımlayabilirsiniz:
-
-| Token | Kullanım Yeri |
-|-------|---------------|
-| `COOLIFY_READ_TOKEN` | Tüm okuma işlemleri |
-| `COOLIFY_SENSITIVE_TOKEN` | Hassas veri okuma (env var'lar, log'lar) |
-| `COOLIFY_WRITE_TOKEN` | Yazma işlemleri |
+| Token | Use Case |
+|-------|----------|
+| `COOLIFY_READ_TOKEN` | All read operations |
+| `COOLIFY_SENSITIVE_TOKEN` | Sensitive data reads (env vars, logs) |
+| `COOLIFY_WRITE_TOKEN` | Write operations |
 | `COOLIFY_DEPLOY_TOKEN` | Deploy/start/restart |
-| `COOLIFY_API_TOKEN` | Hiçbiri yoksa fallback (full access) |
+| `COOLIFY_API_TOKEN` | Fallback if none of the above is set (full access) |
 
-Sunucu her işlem için **en düşük yetkiye sahip token'ı** otomatik seçer.
+The server automatically selects **the lowest-privilege token** for each operation.
 
 ### 📊 Web Dashboard
-
-- MCP sunucusuyla aynı anda otomatik başlar
-- Adres: **http://127.0.0.1:6489**
-- Global arama, command palette (Ctrl+K), dark/light mode
-- Tüm 42 tool görüntülenebilir, audit log izlenebilir
-- KPI kartları ile anlık durum
-
-Kapatmak için: `MCP_DASHBOARD_ENABLED=false`
+- Starts automatically alongside the MCP server
+- Address: **http://127.0.0.1:6489**
+- Global search, command palette (Ctrl+K), dark/light mode
+- All 42 tools are viewable, audit log is browsable
+- Real-time status via KPI cards
+Disable with: `MCP_DASHBOARD_ENABLED=false`
 
 ### 📝 Audit Logging
+All mutation operations are recorded as structured audit events:
 
-Tüm mutation işlemleri yapılandırılmış audit event'leri olarak kaydedilir:
+| Audit Event | When |
+|-------------|------|
+| `coolify.deployment.cancel` | When a deployment is cancelled |
+| `coolify.database_backup_config.create` | When a backup config is created |
+| `coolify.scheduled_task.create` | When a scheduled task is created |
+| `coolify.application.config.update` | When an application config is updated |
+| `coolify.database.config.update` | When a database config is updated |
+| `coolify.storage.create` | When a storage mount is created |
 
-| Audit Event | Ne Zaman |
-|-------------|----------|
-| `coolify.deployment.cancel` | Deployment iptal edildiğinde |
-| `coolify.database_backup_config.create` | Yedek konfigürasyonu oluşturulduğunda |
-| `coolify.scheduled_task.create` | Scheduled task oluşturulduğunda |
-| `coolify.application.config.update` | Uygulama konfigürasyonu güncellendiğinde |
-| `coolify.database.config.update` | Veritabanı konfigürasyonu güncellendiğinde |
-| `coolify.storage.create` | Storage mount oluşturulduğunda |
-
-Her audit event'i: operasyon adı, kaynak (resource), sonuç (allowed/denied/error) ve süre bilgisini içerir.
+Each audit event includes: operation name, resource, result (allowed/denied/error), and duration.
 
 ---
 
-## 2. OpenCode'a Eklendiğinde Yapılabilecek İşlemler
+## 2. What You Can Do When Added to OpenCode
 
-Coolify MCP Server, OpenCode içinden doğrudan çağrılabilen 42 araç sunar. Bunları kategorilere ayıralım.
+Coolify MCP Server offers 42 tools callable directly from OpenCode. Let's break them down by category.
 
-### 📖 Okuma (Her zaman açık — tüm modlarda)
-
+### 📖 Read (Always available — all modes)
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    READ TOOLS (25)                    │
-│          Tüm modlarda kullanılabilir                  │
+│          Available in all modes                       │
 └──────────────────────────────────────────────────────┘
 ```
+| Action | Tool Name | What It Does |
+|--------|-----------|--------------|
+| **List projects** | `coolify_list_projects` | Fetch all projects with optional name filter |
+| **Project detail** | `coolify_get_project` | Project and environment info by UUID |
+| **Project overview** | `coolify_project_overview` | Project + environments + resources + deployments — collects 4 API calls in one shot |
+| **List resources** | `coolify_list_resources` | Filter by project, environment, type, status |
+| **Resource detail** | `coolify_get_resource` | Application/service/database detail |
+| **List deployments** | `coolify_list_deployments` | Newest first, with status filter |
+| **Deployment detail** | `coolify_get_deployment` | Status, timestamp, commit, error summary |
+| **Read logs** | `coolify_get_application_logs` | Log lines with secret redaction |
+| **Env var keys** | `coolify_list_environment_variables` | **VALUES are never returned** |
+| **GitHub Apps** | `coolify_list_github_apps` | Connected GitHub Apps |
+| **Repo discovery** | `coolify_list_repositories` | Repos accessible via a GitHub App |
+| **Branch discovery** | `coolify_list_branches` | Branches in a repo |
+| **Scheduled tasks** | `coolify_list_scheduled_tasks` | List of cron jobs |
+| **Task executions** | `coolify_get_task_executions` | Cron run history |
+| **Backup list** | `coolify_list_database_backups` | Backup config and executions |
+| **Server list** | `coolify_list_servers` | All servers (SSH keys and network info redacted) |
+| **Server detail** | `coolify_get_server` | Single server detail |
+| **Server resources** | `coolify_list_server_resources` | Resources on a server |
+| **Server domains** | `coolify_list_server_domains` | Domains attached to a server |
+| **Team info** | `coolify_get_current_team` | Active team: ID, name, permission scope |
+| **Team members** | `coolify_list_team_members` | Team members (emails policy-gated) |
+| **Storage mounts** | `coolify_list_storages` | Storage mounts for a resource |
+| **App config update** | `coolify_update_application_config` | Health check, CPU, RAM, replicas — PATCH semantics |
+| **DB config update** | `coolify_update_database_config` | CPU/RAM limits, name, description — PATCH semantics |
+| **Deployment cancel** | `coolify_cancel_deployment` | Cancel queued or in-progress deployments |
 
-| İşlem | Araç Adı | Ne Yapar? |
-|-------|----------|-----------|
-| **Projeleri listele** | `coolify_list_projects` | Tüm projeleri isim filtresiyle getirir |
-| **Proje detayı** | `coolify_get_project` | UUID ile proje ve ortam bilgisi |
-| **Proje özeti** | `coolify_project_overview` | Proje + ortamlar + kaynaklar + deployment'lar — 4 API çağrısını tek seferde toplar |
-| **Kaynakları listele** | `coolify_list_resources` | Proje, ortam, tür, durum filtresiyle |
-| **Kaynak detayı** | `coolify_get_resource` | Uygulama/servis/veritabanı detayı |
-| **Deployment'ları listele** | `coolify_list_deployments` | En yeniden eskiye, durum filtresiyle |
-| **Deployment detayı** | `coolify_get_deployment` | Status, timestamp, commit, hata özeti |
-| **Log oku** | `coolify_get_application_logs` | Secret redaction ile log satırları |
-| **Env var KEY'leri** | `coolify_list_environment_variables` | **VALUE'lar asla döndürülmez** |
-| **GitHub App'leri** | `coolify_list_github_apps` | Bağlı GitHub App'leri |
-| **Repo keşfi** | `coolify_list_repositories` | GitHub App üzerinden erişilebilir repo'lar |
-| **Branch keşfi** | `coolify_list_branches` | Repo'daki branch'ler |
-| **Scheduled task'ler** | `coolify_list_scheduled_tasks` | Cron job'ları listesi |
-| **Task execution'ları** | `coolify_get_task_executions` | Cron çalıştırma geçmişi |
-| **Backup listesi** | `coolify_list_database_backups` | Yedek konfigürasyonları ve execution'ları |
-| **Server listesi** | `coolify_list_servers` | Tüm sunucular (hassas bilgiler redakte) |
-| **Server detayı** | `coolify_get_server` | Tek sunucu detayı |
-| **Server kaynakları** | `coolify_list_server_resources` | Sunucu üzerindeki kaynaklar |
-| **Server domain'leri** | `coolify_list_server_domains` | Sunucuya bağlı domain'ler |
-| **Takım bilgisi** | `coolify_get_current_team` | Aktif takım ID, isim, yetki |
-| **Takım üyeleri** | `coolify_list_team_members` | Email'ler varsayılan olarak redakte |
-| **Storage mount'lar** | `coolify_list_storages` | Volume/bind mount'ları |
-| **Sağlık kontrolü** | `coolify_health` | MCP + Coolify API bağlantı durumu |
-
-### 🚀 Deploy (deploy-only veya safe-write modda)
-
-```
-┌──────────────────────────────────────────────────────┐
-│                   DEPLOY TOOLS (4)                    │
-│    deploy-only ve safe-write modlarında açık          │
-└──────────────────────────────────────────────────────┘
-```
-
-| İşlem | Araç Adı | Ne Yapar? |
-|-------|----------|-----------|
-| **Deploy başlat** | `coolify_deploy` | Kaynağı deploy eder (force=POST, normal=GET) |
-| **Restart** | `coolify_restart` | Kaynağı yeniden başlatır |
-| **Start** | `coolify_start` | Duran kaynağı başlatır |
-| **Deployment iptal** | `coolify_cancel_deployment` | Sıradaki veya devam eden deployment'ı iptal eder |
-
-### ✍️ Yazma (safe-write modda, ek izinlerle)
-
+### ✍️ Write (safe-write mode, extra permissions required)
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    WRITE TOOLS (13)                   │
-│      safe-write modu + ek COOLIFY_ALLOW_* izinleri   │
+│      safe-write mode + extra COOLIFY_ALLOW_* gates   │
 └──────────────────────────────────────────────────────┘
 ```
+| Action | Tool Name | Extra Permission | Description |
+|--------|-----------|------------------|-------------|
+| **Set env var** | `coolify_set_environment_variable` | `ALLOW_ENV_WRITE=true` | Single env var |
+| **Bulk env vars** | `coolify_set_environment_variables` | `ALLOW_ENV_WRITE=true` | 1–50 env vars at once |
+| **Stop** | `coolify_stop` | `ALLOW_STOP=true` | Stop a resource ⚠️ |
+| **Create project** | `coolify_create_project` | — | New project |
+| **Create environment** | `coolify_create_environment` | — | Add environment to a project |
+| **Create application** | `coolify_create_application` | — | New application |
+| **Create service** | `coolify_create_service` | — | Docker Compose service |
+| **Create database** | `coolify_create_database` | — | PostgreSQL/MySQL/Redis etc. |
+| **Create scheduled task** | `coolify_create_scheduled_task` | — | Define a cron job |
+| **Update scheduled task** | `coolify_update_scheduled_task` | — | Edit a cron job |
+| **Create backup config** | `coolify_create_backup_config` | — | Backup schedule |
+| **Create storage mount** | `coolify_create_storage` | — | Volume/bind mount |
+| **Validate server** | `coolify_validate_server` | — | Connection and config validation |
+| **Update app config** | `coolify_update_application_config` | — | Health check, CPU, RAM, replicas |
+| **Update DB config** | `coolify_update_database_config` | — | CPU/RAM limits, name, description |
 
-| İşlem | Araç Adı | Ek İzin | Açıklama |
-|-------|----------|---------|----------|
-| **Env var ekle/güncelle** | `coolify_set_environment_variable` | `ALLOW_ENV_WRITE=true` | Tek env var |
-| **Env var bulk** | `coolify_set_environment_variables` | `ALLOW_ENV_WRITE=true` | 1-50 arası toplu env var |
-| **Stop** | `coolify_stop` | `ALLOW_STOP=true` | Kaynağı durdurur ⚠️ |
-| **Proje oluştur** | `coolify_create_project` | — | Yeni proje |
-| **Ortam oluştur** | `coolify_create_environment` | — | Projeye yeni ortam |
-| **Uygulama oluştur** | `coolify_create_application` | — | Yeni uygulama |
-| **Servis oluştur** | `coolify_create_service` | — | Docker-compose servisi |
-| **Veritabanı oluştur** | `coolify_create_database` | — | PostgreSQL/MySQL/Redis vb. |
-| **Scheduled task oluştur** | `coolify_create_scheduled_task` | — | Cron job tanımla |
-| **Scheduled task güncelle** | `coolify_update_scheduled_task` | — | Cron job'u düzenle |
-| **Backup config oluştur** | `coolify_create_backup_config` | — | Yedekleme planı |
-| **Storage mount oluştur** | `coolify_create_storage` | — | Volume/bind mount |
-| **Server doğrula** | `coolify_validate_server` | — | Bağlantı ve konfig doğrulama |
-| **App config güncelle** | `coolify_update_application_config` | — | Health check, CPU, RAM, replika |
-| **DB config güncelle** | `coolify_update_database_config` | — | CPU/RAM limit, isim, açıklama |
-
-> ⚠️ **Stop** ve **Env Write** işlemleri varsayılan olarak KAPALIDIR. `COOLIFY_ALLOW_STOP=true` veya `COOLIFY_ALLOW_ENV_WRITE=true` ile açmanız gerekir.
+> ⚠️ **CAUTION**: **Stop** and **Env Write** operations are OFF by default. You must set `COOLIFY_ALLOW_STOP=true` or `COOLIFY_ALLOW_ENV_WRITE=true` to enable them.
 
 ---
 
-## 3. OpenCode Yapılandırması
+## 3. OpenCode Configuration
 
-### 🖥️ Local (stdio) Kullanım
+### 🖥️ Local (stdio)
+Add to your `opencode.local.jsonc` file:
 
-Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `opencode.local.jsonc` dosyasına aşağıdaki gibi bir MCP tanımı ekleyin:
-
+#### Read-Only (Default)
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
@@ -204,46 +179,8 @@ Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `o
       "type": "local",
       "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
       "environment": {
-        // ─── Zorunlu ────────────────────────────────────────
-        "COOLIFY_URL": "https://coolify.ornek.com",
+        "COOLIFY_URL": "https://coolify.example.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
-
-        // ─── Operation Mode ─────────────────────────────────
-        // "read-only" (varsayılan) | "deploy-only" | "safe-write"
-        "COOLIFY_OPERATION_MODE": "read-only",
-
-        // ─── Production Koruması ────────────────────────────
-        "COOLIFY_DENY_PRODUCTION_MUTATIONS": "true",
-        "COOLIFY_ALLOW_STOP": "false",
-        "COOLIFY_ALLOW_ENV_WRITE": "false"
-      }
-    }
-  }
-}
-```
-
-> ⚠️ **ÖNEMLİ**: `command` içinde `dist/index.mjs` değil `dist/index.js` kullanın! Build çıktısı ES module formatındadır ancak dosya uzantısı `.js`'dir. Repodaki örnek dosya (`examples/opencode.local.jsonc`) hatalı olarak `.mjs` yazabilir — gerçek çıktı `.js`'dir. Doğru yol: `/path/to/mcp-coolify/dist/index.js`
-
-#### Scoped Token'lar ile Least-Privilege
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "coolify": {
-      "type": "local",
-      "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
-      "environment": {
-        "COOLIFY_URL": "https://coolify.ornek.com",
-
-        // 5 farklı scoped token — her işlem en düşük yetkiyle yapılır
-        "COOLIFY_READ_TOKEN": "{env:COOLIFY_READ_TOKEN}",
-        "COOLIFY_SENSITIVE_TOKEN": "{env:COOLIFY_SENSITIVE_TOKEN}",
-        "COOLIFY_WRITE_TOKEN": "{env:COOLIFY_WRITE_TOKEN}",
-        "COOLIFY_DEPLOY_TOKEN": "{env:COOLIFY_DEPLOY_TOKEN}",
-        "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}"   // fallback
-
-        // Güvenli başlangıç: sadece oku
         "COOLIFY_OPERATION_MODE": "read-only"
       }
     }
@@ -251,8 +188,9 @@ Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `o
 }
 ```
 
-#### Deploy Yetkisi ile
+> ⚠️ **IMPORTANT**: Use `dist/index.js` in the `command`, **not** `dist/index.mjs`! The build output is ES module format but the file extension is `.js`. The example file in the repo (`examples/opencode.local.jsonc`) may incorrectly say `.mjs` — the actual output is `.js`. Correct path: `/path/to/mcp-coolify/dist/index.js`
 
+#### With Scoped Tokens (Least-Privilege)
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
@@ -261,7 +199,31 @@ Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `o
       "type": "local",
       "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
       "environment": {
-        "COOLIFY_URL": "https://coolify.ornek.com",
+        "COOLIFY_URL": "https://coolify.example.com",
+        // 5 scoped tokens — each operation uses the lowest privilege
+        "COOLIFY_READ_TOKEN": "{env:COOLIFY_READ_TOKEN}",
+        "COOLIFY_SENSITIVE_TOKEN": "{env:COOLIFY_SENSITIVE_TOKEN}",
+        "COOLIFY_WRITE_TOKEN": "{env:COOLIFY_WRITE_TOKEN}",
+        "COOLIFY_DEPLOY_TOKEN": "{env:COOLIFY_DEPLOY_TOKEN}",
+        "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}"   // fallback
+        // Safe start: read-only
+        "COOLIFY_OPERATION_MODE": "read-only"
+      }
+    }
+  }
+}
+```
+
+#### With Deploy Permission
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "coolify": {
+      "type": "local",
+      "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
+      "environment": {
+        "COOLIFY_URL": "https://coolify.example.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
         "COOLIFY_OPERATION_MODE": "deploy-only"
       }
@@ -270,8 +232,7 @@ Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `o
 }
 ```
 
-#### Tam Yetki (Dikkatli Kullanın!)
-
+#### Full Permission (Use with Caution!)
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
@@ -280,29 +241,27 @@ Coolify MCP Server'ı OpenCode'a **yerel (local/stdio)** olarak eklemek için `o
       "type": "local",
       "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
       "environment": {
-        "COOLIFY_URL": "https://coolify.ornek.com",
+        "COOLIFY_URL": "https://coolify.example.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
         "COOLIFY_OPERATION_MODE": "safe-write",
         "COOLIFY_ALLOW_ENV_WRITE": "true",
         "COOLIFY_ALLOW_STOP": "true",
-        "COOLIFY_DENY_PRODUCTION_MUTATIONS": "true" // production'u koru
+        "COOLIFY_DENY_PRODUCTION_MUTATIONS": "true" // protect production
       }
     }
   }
 }
 ```
 
-### 🌐 Remote (HTTP) Kullanım
-
-Coolify MCP Server'ı uzaktan (HTTP/SSE transport ile) çalıştırıyorsanız:
-
+### 🌐 Remote (HTTP) Usage
+If you run Coolify MCP Server remotely (HTTP/SSE transport):
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "coolify-remote": {
       "type": "remote",
-      "url": "https://coolify-mcp.ornek.com/mcp",
+      "url": "https://coolify-mcp.example.com/mcp",
       "headers": {
         "Authorization": "Bearer {env:MCP_SERVER_API_KEY}"
       }
@@ -311,429 +270,351 @@ Coolify MCP Server'ı uzaktan (HTTP/SSE transport ile) çalıştırıyorsanız:
 }
 ```
 
-#### HTTP Transport Endpoint'leri
+#### HTTP Transport Endpoints
+When the server runs in HTTP mode (`MCP_TRANSPORT=http`) it exposes the following endpoints:
 
-Sunucu HTTP modunda çalışırken (`MCP_TRANSPORT=http`) şu endpoint'leri sunar:
-
-| Endpoint | Auth | Ne işe yarar? |
-|----------|------|---------------|
-| `GET /healthz` | ❌ | Liveness kontrolü (`{"ok":true,"status":"alive"}`) |
-| `GET /readyz` | ❌ | Readiness kontrolü (Coolify API erişilebilir mi?) |
-| `POST /mcp` | ✅ Bearer | Tüm MCP tool çağrıları buraya gider |
+| Endpoint | Auth | What It Does |
+|----------|------|--------------|
+| `GET /healthz` | ❌ | Liveness check (`{"ok":true,"status":"alive"}`) |
+| `GET /readyz` | ❌ | Readiness check (is the Coolify API reachable?) |
+| `POST /mcp` | ✅ Bearer | All MCP tool calls go here |
 
 ---
 
-## 4. Yetkiler ve Operation Mode'lar
+## 4. Permissions and Operation Modes
 
-### Mode Karar Matrisi
+### Mode Decision Matrix
 
-| Tool Grubu | `read-only` | `deploy-only` | `safe-write` |
+| Tool Group | `read-only` | `deploy-only` | `safe-write` |
 |------------|:-----------:|:-------------:|:------------:|
-| **25 read tool** (list/get/health/logs/env-keys) | ✅ | ✅ | ✅ |
-| `coolify_deploy` | ❌ | ✅ | ✅ |
-| `coolify_restart` | ❌ | ✅ | ✅ |
-| `coolify_start` | ❌ | ✅ | ✅ |
-| `coolify_cancel_deployment` | ❌ | ✅ | ✅ |
-| `coolify_stop` | ❌ | ❌ | ⛔ `ALLOW_STOP=true` |
-| `coolify_set_environment_variable` | ❌ | ❌ | ⛔ `ALLOW_ENV_WRITE=true` |
-| `coolify_set_environment_variables` (bulk) | ❌ | ❌ | ⛔ `ALLOW_ENV_WRITE=true` |
-| `coolify_create_*` (proje/ortam/app/servis/db) | ❌ | ❌ | ✅ |
-| `coolify_create_scheduled_task` | ❌ | ❌ | ✅ |
-| `coolify_update_scheduled_task` | ❌ | ❌ | ✅ |
-| `coolify_create_backup_config` | ❌ | ❌ | ✅ |
-| `coolify_create_storage` | ❌ | ❌ | ✅ |
-| `coolify_update_application_config` | ❌ | ❌ | ✅ |
-| `coolify_update_database_config` | ❌ | ❌ | ✅ |
-| `coolify_validate_server` | ❌ | ❌ | ✅ |
+| **25 read tools** (list/get/health/logs/env-keys) | ✅ | ✅ | ✅ |
+| **2 config update tools** (app/DB config) | ✅ | ✅ | ✅ |
+| **Server validation** | ✅ | ✅ | ✅ |
+| **15 action tools** (create/deploy/restart) | ❌ | ✅ | ✅ |
+| **Stop** | ❌ | ❌ | ✅ + gate |
+| **Env var write** | ❌ | ❌ | ✅ + gate |
+| **Production mutations** | ❌ | ⚠️ | ⚠️ + deny gate |
 
-### Ek İzin Gate'leri (safe-write modunda bile kapalı)
+### Additional Consent Gates
 
-| Gate | Env Değişkeni | Varsayılan | Açılınca |
-|------|---------------|:----------:|----------|
-| **Stop Gate** | `COOLIFY_ALLOW_STOP=true` | `false` | `coolify_stop` kullanılabilir |
-| **Env Write Gate** | `COOLIFY_ALLOW_ENV_WRITE=true` | `false` | Env var ekleme/güncelleme açılır |
-| **Production Deny** | `COOLIFY_DENY_PRODUCTION_MUTATIONS=true` | `true` | `false` yapınca production mutation'larına izin verir |
-| **Production Deploy** | `COOLIFY_ALLOW_PRODUCTION_DEPLOY=true` | `false` | Production deploy'a özel izin |
+| Gate | Env Variable | Default | When Enabled |
+|------|--------------|:-------:|--------------|
+| **Stop Gate** | `COOLIFY_ALLOW_STOP=true` | `false` | `coolify_stop` becomes available |
+| **Env Write Gate** | `COOLIFY_ALLOW_ENV_WRITE=true` | `false` | Env var create/update is enabled |
+| **Production Deny** | `COOLIFY_DENY_PRODUCTION_MUTATIONS=true` | `true` | Set to `false` to allow production mutations |
+| **Production Deploy** | `COOLIFY_ALLOW_PRODUCTION_DEPLOY=true` | `false` | Specific permission for production deploys |
 
-### Production Guard Akışı
-
+### Production Guard Flow
 ```
-Bir action tool çağrıldı
+An action tool is called
         │
         ▼
 ┌───────────────────┐
 │ Allow Gate Check  │ ← COOLIFY_ALLOW_STOP, ALLOW_ENV_WRITE
-│ Açık mı?          │
+│ Enabled?          │
 └───────┬───────────┘
-        │ (geçti)
+        │ (passed)
         ▼
 ┌───────────────────┐
 │ Operation Mode    │ ← read-only/deploy-only/safe-write
-│ Uygun mu?         │
+│ Compatible?       │
 └───────┬───────────┘
-        │ (geçti)
+        │ (passed)
         ▼
 ┌───────────────────┐
-│ Scope/Allowlist   │ ← UUID allowlist kontrolü
-│ Uygun mu?         │
+│ Scope/Allowlist   │ ← UUID allowlist check
+│ Compatible?       │
 └───────┬───────────┘
-        │ (geçti)
+        │ (passed)
         ▼
 ┌───────────────────┐
-│ Production Guard  │ ← Ortam adı "production" mı?
-│ Mutation izni var │
-│ mı?               │
+│ Production Guard  │ ← Is the environment named "production"?
+│ Mutation allowed? │
 └───────┬───────────┘
-        │ (geçti)
+        │ (passed)
         ▼
 ┌───────────────────┐
-│ Input Validation  │ ← Zod şeması, cron, path traversal
-│ Geçerli mi?       │
+│ Input Validation  │ ← Zod schema, cron, path traversal
+│ Valid?            │
 └───────┬───────────┘
-        │ (geçti)
+        │ (passed)
         ▼
 ┌───────────────────┐
 │ Audit Log         │ ← allowed/denied/error
-│ Kaydet            │
+│ Record            │
 └───────┬───────────┘
         │
         ▼
-     İşlem Çalıştır
+     Execute Operation
 ```
 
-Herhangi bir adımda **başarısız** olursa işlem `POLICY_DENIED` hatasıyla reddedilir ve audit event'i kaydedilir.
+If any step **fails**, the operation is rejected with a `POLICY_DENIED` error and an audit event is recorded.
 
 ---
 
-## 5. Örnek Kullanım Senaryoları
+## 5. Example Usage Scenarios
 
-### Senaryo 1: Yeni Proje Keşfi
-
-Bir ekibe yeni katıldınız ve Coolify'da neler var bilmiyorsunuz. Sırasıyla:
+### Scenario 1: New Project Discovery
+You just joined a team and don't know what's in Coolify. Proceed step by step:
 
 ```text
 1. coolify_list_projects
-   → Projelerin listesini al
-
+   → Get the list of projects
 2. coolify_get_project
-   → İlgilendiğin projenin detaylarına bak
-   (ortamlar, kaynak sayıları)
-
+   → Look at the details of a project you're interested in
+   (environments, resource counts)
 3. coolify_project_overview
-   → Projenin tam özetini al
-   (ortamlar + kaynaklar + deployment durumu + health)
+   → Get a full project summary
+   (environments + resources + deployment status + health)
 ```
 
-**OpenCode'da kullanımı:**
-
+**Usage in OpenCode:**
 ```
-@coolify Tüm projeleri listele ve ilk projenin özetini çıkar
+@coolify List all projects and give me a summary of the first one
 ```
 
 ```text
-AI şunu yapar:
-1. coolify_list_projects() → projeleri alır
-2. coolify_project_overview(project_uuid="...") → özeti alır
-3. Size bir rapor sunar
+The AI does the following:
+1. coolify_list_projects() → fetches projects
+2. coolify_project_overview(project_uuid="...") → gets the summary
+3. Presents you with a report
 ```
 
-### Senaryo 2: Deployment Durumu Kontrolü
-
-Bir deployment'ın nerede olduğunu merak ediyorsunuz:
+### Scenario 2: Deployment Status Check
+You're wondering where a deployment stands:
 
 ```text
 1. coolify_list_deployments
-   → Son deployment'ları listele (resource_uuid filtresiyle)
-
+   → List recent deployments (with resource_uuid filter)
 2. coolify_get_deployment
-   → Belirli bir deployment'ın detayını gör
-   (status, timestamps, commit, hata)
-
+   → View details of a specific deployment
+   (status, timestamps, commit, errors)
 3. coolify_get_application_logs
-   → Uygulama loglarını oku (redakte edilmiş)
+   → Read application logs (redacted)
 ```
 
-**OpenCode'da kullanımı:**
-
+**Usage in OpenCode:**
 ```
-@coolify "my-app" uygulamasının son deployment durumunu kontrol et
+@coolify Check the latest deployment status of the "my-app" application
 ```
 
-### Senaryo 3: Yeni Uygulama Deploy (safe-write modda)
-
-Sıfırdan bir uygulama deploy etmek:
+### Scenario 3: New Application Deploy (safe-write mode)
+Deploy an application from scratch:
 
 ```text
 1. coolify_list_github_apps
-   → Hangi GitHub App'leri bağlı?
-
+   → Which GitHub Apps are connected?
 2. coolify_list_repositories
-   → GitHub App üzerinden repo'ları keşfet
-
+   → Discover repos via the GitHub App
 3. coolify_list_branches
-   → Repo'daki branch'leri gör
-
+   → See branches in the repo
 4. coolify_create_application
-   → Uygulamayı oluştur
-   (proje, ortam, repo, branch, build pack, port)
-
+   → Create the application
+   (project, environment, repo, branch, build pack, port)
 5. coolify_set_environment_variables
-   → Env var'ları toplu ekle
-   (ALLOW_ENV_WRITE=true olmalı)
-
+   → Bulk-add env vars
+   (ALLOW_ENV_WRITE=true must be set)
 6. coolify_deploy
-   → Deploy'u başlat
+   → Start the deployment
 ```
 
-**OpenCode'da kullanımı:**
-
+**Usage in OpenCode:**
 ```
-@coolify "my-app" uygulamasını "staging" ortamına deploy et
+@coolify Deploy the "my-app" application to the "staging" environment
 ```
 
-### Senaryo 4: Incident Response
-
-Production'da bir sorun var, hızlı aksiyon almanız gerekiyor:
+### Scenario 4: Incident Response
+There's an issue in production and you need to act fast:
 
 ```text
 1. coolify_project_overview
-   → Hızlı durum değerlendirmesi
-
+   → Quick status assessment
 2. coolify_list_deployments
-   → Son deployment'ları kontrol et
-
+   → Check recent deployments
 3. coolify_get_deployment
-   → Sorunlu deployment'ın detayı
-
+   → Details of the problematic deployment
 4. coolify_get_application_logs
-   → Hata loglarını incele
-
+   → Review error logs
 5. coolify_cancel_deployment
-   → Eğer hala devam ediyorsa iptal et
-
+   → Cancel if still in progress
 6. coolify_restart
-   → Önceki çalışan versiyona dön
+   → Roll back to the previous working version
 ```
 
-**OpenCode'da kullanımı:**
-
+**Usage in OpenCode:**
 ```
-@coolify Production'da "api" servisi çöktü, son deployment'ı kontrol et ve 
-gerekirse rollback yap
+@coolify The "api" service is down in production, check the latest deployment and rollback if needed
 ```
 
-### Senaryo 5: Cron Debugging
-
-Bir scheduled task çalışmıyor:
+### Scenario 5: Cron Debugging
+A scheduled task isn't running:
 
 ```text
 1. coolify_list_scheduled_tasks
-   → Uygulamadaki cron job'larını listele
-
+   → List cron jobs on the application
 2. coolify_get_task_executions
-   → Son çalıştırmaların durumunu kontrol et
-   (status filtresiyle sadece failed olanları görebilirsin)
-
+   → Check the status of recent runs
+   (filter by status to see only failures)
 3. coolify_update_scheduled_task
-   → Cron ifadesini veya command'ı düzelt
-   (safe-write modunda)
+   → Fix the cron expression or command
+   (safe-write mode required)
 ```
 
-**OpenCode'da kullanımı:**
-
+**Usage in OpenCode:**
 ```
-@coolify "daily-backup" task'inin neden çalışmadığını araştır
+@coolify Investigate why the "daily-backup" task isn't running
 ```
 
-### Senaryo 6: Veritabanı Yedekleme
-
-Bir PostgreSQL veritabanına yedekleme planı eklemek:
+### Scenario 6: Database Backup
+Add a backup plan for a PostgreSQL database:
 
 ```text
 1. coolify_list_resources
-   → Veritabanlarını bul (resource_type=database)
-
+   → Find databases (resource_type=database)
 2. coolify_get_resource
-   → Veritabanı detayını gör
-
+   → View database details
 3. coolify_create_backup_config
-   → Cron schedule ile yedekleme planı oluştur
-   (safe-write modunda)
-
+   → Create a backup schedule with a cron expression
+   (safe-write mode required)
 4. coolify_list_database_backups
-   → Yedeklerin çalıştığını doğrula
+   → Confirm backups are running
 ```
 
-### Senaryo 7: Sunucu ve Kaynak Keşfi
-
-Yeni bir sunucu eklediniz, üzerindeki kaynakları keşfedin:
+### Scenario 7: Server and Resource Discovery
+You added a new server and want to discover its resources:
 
 ```text
 1. coolify_list_servers
-   → Tüm sunucuları listele
-
+   → List all servers
 2. coolify_get_server
-   → Sunucu detaylarını gör
-   (SSH key'ler ve network bilgileri redakte edilir)
-
+   → View server details
+   (SSH keys and network info are redacted)
 3. coolify_list_server_resources
-   → Sunucu üzerindeki kaynakları listele
-
+   → List resources on the server
 4. coolify_list_server_domains
-   → Sunucuya bağlı domain'leri gör
-
+   → See domains attached to the server
 5. coolify_validate_server
-   → Sunucu bağlantısını doğrula (safe-write modunda)
+   → Validate server connectivity (safe-write mode required)
 ```
 
 ---
 
-## 6. 42 Tool Kataloğu
+## 6. 42-Tool Catalog
 
-Tüm tool'ların tam listesi. İsim, açıklama, read-only/destructive bilgisi ile birlikte.
+Full list of all tools. Includes name, description, and read-only/destructive info.
 
-### 📖 Okuma Araçları (25)
+### 📖 Read Tools (25)
 
 #### Core Read Tools (10)
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 1 | `coolify_health` | MCP + Coolify API connectivity check. Returns health status, auth status, and latency. | ✅ |
+| 2 | `coolify_list_projects` | List all projects. Optional name filter. | ✅ |
+| 3 | `coolify_get_project` | Single project detail by UUID. Environments and resource counts. | ✅ |
+| 4 | `coolify_list_resources` | Resource list filtered by project, environment, type, status, name. | ✅ |
+| 5 | `coolify_get_resource` | Resource detail by UUID + type. Sensitive fields redacted. | ✅ |
+| 6 | `coolify_project_overview` | Project summary — collects 4 API calls in one shot. | ✅ |
+| 7 | `coolify_list_deployments` | Deployment list (newest first). Status and limit filters. | ✅ |
+| 8 | `coolify_get_deployment` | Single deployment detail. Status, timestamp, commit, error. | ✅ |
+| 9 | `coolify_get_application_logs` | Application logs. With secret redaction. | ✅ |
+| 10 | `coolify_list_environment_variables` | Env var keys only. VALUES never returned. Metadata returned. | ✅ |
 
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 1 | `coolify_health` | MCP + Coolify API bağlantı kontrolü. Health status, auth durumu, gecikme süresi döndürür. | ✅ |
-| 2 | `coolify_list_projects` | Tüm projeleri listeler. Opsiyonel isim filtresi. | ✅ |
-| 3 | `coolify_get_project` | UUID ile tek proje detayı. Ortamlar ve kaynak sayıları. | ✅ |
-| 4 | `coolify_list_resources` | Proje, ortam, tür, durum, isim filtresiyle kaynak listesi. | ✅ |
-| 5 | `coolify_get_resource` | UUID + tür ile kaynak detayı. Hassas alanlar redakte edilir. | ✅ |
-| 6 | `coolify_project_overview` | Proje özeti — 4 API çağrısını tek seferde toplar. | ✅ |
-| 7 | `coolify_list_deployments` | Deployment listesi (en yeniden eskiye). Durum ve limit filtresi. | ✅ |
-| 8 | `coolify_get_deployment` | Tek deployment detayı. Status, timestamp, commit, hata. | ✅ |
-| 9 | `coolify_get_application_logs` | Uygulama logları. Secret redaction ile. | ✅ |
-| 10 | `coolify_list_environment_variables` | Env var key'leri ve metadata. **VALUE'lar ASLA döndürülmez.** | ✅ |
-
-#### GitHub Discovery Tools (3)
-
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 11 | `coolify_list_github_apps` | Coolify'a bağlı GitHub App'leri listeler. UUID, isim, organizasyon. Secret yok. | ✅ |
-| 12 | `coolify_list_repositories` | GitHub App üzerinden erişilebilir repo'lar. Sayfalama ve arama destekler. | ✅ |
-| 13 | `coolify_list_branches` | Repo'daki branch'leri listeler. | ✅ |
+#### GitHub Discovery Tools (4)
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 11 | `coolify_list_github_apps` | Connected GitHub Apps (team and system-wide). | ✅ |
+| 12 | `coolify_list_repositories` | Repos accessible via a GitHub App. Paginated, searchable. | ✅ |
+| 13 | `coolify_list_branches` | Branches in a GitHub repository. | ✅ |
+| 14 | `coolify_list_rollback_images` | Available Docker images for rollback. | ✅ |
 
 #### Scheduled Task Read Tools (2)
-
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 14 | `coolify_list_scheduled_tasks` | Uygulama/servis üzerindeki cron job'larını listeler. | ✅ |
-| 15 | `coolify_get_task_executions` | Scheduled task çalıştırma geçmişi. Çıktı redakte edilir. | ✅ |
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 15 | `coolify_list_scheduled_tasks` | Cron jobs on an application/service. | ✅ |
+| 16 | `coolify_get_task_executions` | Scheduled task run history. Output is redacted. | ✅ |
 
 #### Backup Read Tool (1)
-
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 16 | `coolify_list_database_backups` | Veritabanı yedek konfigürasyonları ve execution'ları. Hassas yollar redakte. | ✅ |
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 17 | `coolify_list_database_backups` | Database backup configs and executions. Sensitive paths redacted. | ✅ |
 
 #### Server Read Tools (4)
-
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 17 | `coolify_list_servers` | Tüm sunucular. SSH key'ler ve network bilgileri redakte. | ✅ |
-| 18 | `coolify_get_server` | Tek sunucu detayı. Hassas bilgiler redakte. | ✅ |
-| 19 | `coolify_list_server_resources` | Sunucu üzerindeki kaynaklar (tür ve durum filtresiyle). | ✅ |
-| 20 | `coolify_list_server_domains` | Sunucuya bağlı domain'ler. | ✅ |
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 18 | `coolify_list_servers` | All servers. SSH keys and network info redacted. | ✅ |
+| 19 | `coolify_get_server` | Single server detail. Sensitive info redacted. | ✅ |
+| 20 | `coolify_list_server_resources` | Resources on a server (with type and status filter). | ✅ |
+| 21 | `coolify_list_server_domains` | Domains attached to a server. | ✅ |
 
 #### Team Read Tools (2)
-
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 21 | `coolify_get_current_team` | Aktif takım: ID, isim, yetki kapsamı. | ✅ |
-| 22 | `coolify_list_team_members` | Takım üyeleri. Email'ler policy-gated, varsayılan redakte. | ✅ |
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 22 | `coolify_get_current_team` | Active team: ID, name, permission scope. | ✅ |
+| 23 | `coolify_list_team_members` | Team members. Emails policy-gated, redacted by default. | ✅ |
 
 #### Storage Read Tool (1)
+| # | Tool Name | Description | Read-only? |
+|:-:|-----------|-------------|:----------:|
+| 24 | `coolify_list_storages` | Storage mounts. Sensitive host paths redacted. | ✅ |
 
-| # | Araç Adı | Açıklama | Read-only? |
-|:-:|----------|----------|:----------:|
-| 23 | `coolify_list_storages` | Storage mount'ları listeler. Hassas host yolları redakte. | ✅ |
+#### Configuration Update Tools (2 — require safe-write)
+| # | Tool Name | Description | Destructive? |
+|:-:|-----------|-------------|:-----------:|
+| 25 | `coolify_update_application_config` | Application config: health check, CPU/RAM limits, replicas, ports, build settings. PATCH semantics. Audit: `coolify.application.config.update` | ⚠️ Idempotent |
+| 26 | `coolify_update_database_config` | Database config: CPU/RAM limits, name, description. PATCH semantics. Audit: `coolify.database.config.update` | ⚠️ Idempotent |
 
-#### Configuration Update Tools (2 — safe-write gerektirir)
+### ✍️ Action Tools (17)
 
-| # | Araç Adı | Açıklama | Destructive? |
-|:-:|----------|----------|:-----------:|
-| 24 | `coolify_update_application_config` | Uygulama konfigürasyonu: health check, CPU/RAM limit, replika, port, build ayarları. PATCH semantics. Audit: `coolify.application.config.update` | ⚠️ İdempotent |
-| 25 | `coolify_update_database_config` | Veritabanı konfigürasyonu: CPU/RAM limit, isim, açıklama. PATCH semantics. Audit: `coolify.database.config.update` | ⚠️ İdempotent |
+#### Deployment Action Tools (5)
+| # | Tool Name | Description | Destructive? | Policy |
+|:-:|-----------|-------------|:-----------:|--------|
+| 1 | `coolify_deploy` | Deploy an application, service, or database. Subject to operation mode, allowlist, and production guard. | ⚠️ | Mode + Scope + Production |
+| 2 | `coolify_start` | Start a stopped resource. | ✅ | Mode + Scope |
+| 3 | `coolify_restart` | Restart a resource. Production guard mandatory. | ⚠️ | Mode + Scope + Production |
+| 4 | `coolify_rollback_application` | Roll back to a previous image tag/commit. | ⚠️ | Mode + Scope + Production |
+| 5 | `coolify_cancel_deployment` | Cancel a queued or in-progress deployment. | ✅ | Mode + Scope |
 
-### ⚡ Eylem Araçları (17)
-
-#### Core Deploy Tools (5)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 26 | `coolify_deploy` | Kaynağı deploy eder. Force deploy (POST vs GET) destekler. | ❌ | Mode + Scope + Production |
-| 27 | `coolify_restart` | Kaynağı yeniden başlatır. Production policy zorunlu. | ⚠️ | Mode + Scope + Production |
-| 28 | `coolify_start` | Duran kaynağı başlatır. | ❌ | Mode + Scope + Production |
-| 29 | `coolify_stop` | Kaynağı durdurur. **Varsayılan KAPALI.** `ALLOW_STOP=true` gerekli. | ✅ | AllowStop + Mode + Scope + Production |
-| 30 | `coolify_set_environment_variable` | Tek env var ekler/günceller. **Varsayılan KAPALI.** `ALLOW_ENV_WRITE=true` gerekli. Değer ASLA döndürülmez. | ⚠️ | AllowEnvWrite + Mode + Scope + Production |
-
-#### New Action Tools (6 — safe-write)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 31 | `coolify_create_project` | Yeni proje oluşturur. | ❌ | Mode + Scope + Production |
-| 32 | `coolify_create_environment` | Projeye yeni ortam ekler. | ❌ | Mode + Scope + Production |
-| 33 | `coolify_create_application` | Proje ortamına yeni uygulama ekler. | ❌ | Mode + Scope + Production |
-| 34 | `coolify_create_service` | Docker-compose servisi oluşturur. | ❌ | Mode + Scope + Production |
-| 35 | `coolify_create_database` | Veritabanı oluşturur (8 tür: postgresql, mysql, mongodb, redis, mariadb, keydb, dragonfly, clickhouse). Şifre/bağlantı ASLA döndürülmez. | ❌ | Mode + Scope + Production |
-| 36 | `coolify_set_environment_variables` | 1-50 arası toplu env var. **Varsayılan KAPALI.** `ALLOW_ENV_WRITE=true` gerekli. | ⚠️ | AllowEnvWrite + Mode + Scope + Production |
-
-#### Deployment Action Tool (1)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 37 | `coolify_cancel_deployment` | Sıradaki/devam eden deployment'ı iptal eder. Terminal durumlarda `UNSUPPORTED_OPERATION` döner. Audit: `coolify.deployment.cancel` | ❌ | Mode + Scope |
-
-#### Backup Action Tool (1 — safe-write)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 38 | `coolify_create_backup_config` | Veritabanı yedek konfigürasyonu oluşturur. Cron ifadesi validate edilir. Audit: `coolify.database_backup_config.create` | ❌ | Mode + Scope + Production |
-
-#### Scheduled Task Action Tools (2 — safe-write)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 39 | `coolify_create_scheduled_task` | Cron job oluşturur. Cron ifadesi validate edilir. Audit: `coolify.scheduled_task.create` | ❌ | Mode + Scope + Production |
-| 40 | `coolify_update_scheduled_task` | Cron job'u günceller. İsim, command, schedule, enabled. | ❌ | Mode + Scope + Production |
+#### Creation Action Tools (8)
+| # | Tool Name | Description | Destructive? | Policy |
+|:-:|-----------|-------------|:-----------:|--------|
+| 6 | `coolify_create_project` | Create a new project. | ✅ | Mode + Scope |
+| 7 | `coolify_create_environment` | Create a new environment in a project. | ✅ | Mode + Scope |
+| 8 | `coolify_create_application` | Create a new application in a project environment. | ✅ | Mode + Scope |
+| 9 | `coolify_create_service` | Create a new service in a project environment. | ✅ | Mode + Scope |
+| 10 | `coolify_create_database` | Create a new database. Passwords are NEVER returned. | ✅ | Mode + Scope |
+| 11 | `coolify_create_backup_config` | Create a backup configuration for a database. | ✅ | Mode + Scope + Production |
+| 12 | `coolify_create_scheduled_task` | Create a cron job. Cron expression is validated. Audit: `coolify.scheduled_task.create` | ❌ | Mode + Scope + Production |
+| 13 | `coolify_update_scheduled_task` | Update a cron job. Name, command, schedule, enabled. | ❌ | Mode + Scope + Production |
 
 #### Server Validation Tool (1)
-
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 41 | `coolify_validate_server` | Sunucu bağlantı ve konfigürasyon doğrulaması. Mutation olarak işlem görür (audit). | ❌ | Mode + Scope |
+| # | Tool Name | Description | Destructive? | Policy |
+|:-:|-----------|-------------|:-----------:|--------|
+| 14 | `coolify_validate_server` | Validate server connectivity and configuration. Processes as a mutation (audit). | ❌ | Mode + Scope |
 
 #### Storage Action Tool (1 — safe-write)
+| # | Tool Name | Description | Destructive? | Policy |
+|:-:|-----------|-------------|:-----------:|--------|
+| 15 | `coolify_create_storage` | Create a storage mount. Has path traversal protection. Audit: `coolify.storage.create` | ❌ | Mode + Scope + Production |
 
-| # | Araç Adı | Açıklama | Destructive? | Policy |
-|:-:|----------|----------|:-----------:|--------|
-| 42 | `coolify_create_storage` | Storage mount oluşturur. Path traversal koruması var. Audit: `coolify.storage.create` | ❌ | Mode + Scope + Production |
+### Error Codes
+| Code | Meaning | Retry? |
+|------|---------|:------:|
+| `AUTHENTICATION_FAILED` | Token missing or invalid | ❌ |
+| `PERMISSION_DENIED` | Token lacks required permissions | ❌ |
+| `POLICY_DENIED` | MCP policy blocked it (mode/scope/production) | ❌ |
+| `RESOURCE_NOT_FOUND` | Resource not found (404) | ❌ |
+| `RATE_LIMITED` | Rate limit exceeded (429) | ✅ |
+| `COOLIFY_UNAVAILABLE` | Coolify API unreachable or 5xx | ✅ |
+| `REQUEST_TIMEOUT` | Request exceeded 30s | ✅ |
+| `VALIDATION_ERROR` | Invalid input parameters | ❌ |
+| `UPSTREAM_ERROR` | General Coolify API error | varies |
+| `INTERNAL_ERROR` | MCP server internal error | ❌ |
 
-### Hata Kodları
-
-| Kod | Anlamı | Tekrar Dene? |
-|-----|--------|:-----------:|
-| `AUTHENTICATION_FAILED` | Token eksik veya geçersiz | ❌ |
-| `PERMISSION_DENIED` | Token'ın yetkisi yok | ❌ |
-| `POLICY_DENIED` | MCP politikası engelledi (mode/scope/production) | ❌ |
-| `RESOURCE_NOT_FOUND` | Kaynak bulunamadı (404) | ❌ |
-| `RATE_LIMITED` | Rate limit aşıldı (429) | ✅ |
-| `COOLIFY_UNAVAILABLE` | Coolify API ulaşılamıyor veya 5xx | ✅ |
-| `REQUEST_TIMEOUT` | İstek 30sn aştı | ✅ |
-| `VALIDATION_ERROR` | Geçersiz girdi parametreleri | ❌ |
-| `UPSTREAM_ERROR` | Genel Coolify API hatası | değişir |
-| `INTERNAL_ERROR` | MCP sunucu iç hatası | ❌ |
-
-### Başarılı Yanıt Formatı
-
+### Success Response Format
 ```json
 {
   "ok": true,
-  "summary": "3 proje bulundu",
+  "summary": "3 projects found",
   "data": [ /* ... */ ],
   "meta": {
     "durationMs": 42,
@@ -742,15 +623,14 @@ Tüm tool'ların tam listesi. İsim, açıklama, read-only/destructive bilgisi i
 }
 ```
 
-### Policy Reddi Yanıtı
-
+### Policy Denial Response
 ```json
 {
   "ok": false,
-  "summary": "İşlem politika tarafından reddedildi",
+  "summary": "Operation denied by policy",
   "error": {
     "code": "POLICY_DENIED",
-    "message": "Operation mode 'read-only' — 'deploy' işlemlerine izin verilmiyor",
+    "message": "Operation mode 'read-only' — 'deploy' operations are not allowed",
     "retryable": false
   },
   "meta": {
@@ -761,59 +641,53 @@ Tüm tool'ların tam listesi. İsim, açıklama, read-only/destructive bilgisi i
 
 ---
 
-## 7. Güvenlik
+## 7. Security
 
-Coolify MCP Server'ın güvenlik modeli, bir AI asistanının altyapınıza zarar vermesini engellemek üzere **katmanlı savunma** (defense in depth) prensibiyle tasarlanmıştır.
+Coolify MCP Server's security model is designed around the principle of **defense in depth** to prevent an AI assistant from harming your infrastructure.
 
-### 🔒 Katman 1: Environment Variable Koruması
-
+### 🔒 Layer 1: Environment Variable Protection
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                  │
 │  coolify_list_environment_variables                             │
 │                                                                  │
-│  Döndürülen:  KEY'ler ✅                                         │
-│  Döndürülen:  Metadata (created_at, updated_at, is_literal) ✅    │
-│  ASLA DÖNDÜRÜLMEZ: VALUE'lar ❌❌                                │
+│  Returned:  KEYS ✅                                              │
+│  Returned:  Metadata (created_at, updated_at, is_literal) ✅     │
+│  NEVER RETURNED: VALUES ❌❌                                     │
 │                                                                  │
 │  coolify_set_environment_variable                               │
-│  Gönderilen: VALUE alınır ✅                                     │
-│  Yanıtta: VALUE ASLA döndürülmez ❌                              │
+│  Sent: VALUE received ✅                                         │
+│  In response: VALUE NEVER returned ❌                            │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 🔒 Katman 2: Log ve Secret Redaction
+### 🔒 Layer 2: Log and Secret Redaction
+Log lines, audit events, and API responses are scanned against these patterns:
 
-Log satırları, audit event'leri ve API yanıtları aşağıdaki kalıplara karşı taranır:
-
-| Kalıp | Ne Yapılır? |
-|-------|-------------|
+| Pattern | Action |
+|---------|--------|
 | `Bearer [token]` | `Bearer [REDACTED]` |
 | `password=...` | `password=[REDACTED]` |
 | `secret=...` | `secret=[REDACTED]` |
 | `api_key=...` | `api_key=[REDACTED]` |
-| SSH private key'ler | `[REDACTED]` |
-| Database connection URL'leri | `[REDACTED]` |
-| Email adresleri | `[REDACTED]` (policy ile) |
+| SSH private keys | `[REDACTED]` |
+| Database connection URLs | `[REDACTED]` |
+| Email addresses | `[REDACTED]` (policy-gated) |
 
-### 🔒 Katman 3: Production Guard
-
-Production ortamında mutation'lar varsayılan olarak **TAMAMEN ENGELLENİR**:
+### 🔒 Layer 3: Production Guard
+Mutations in production are **FULLY BLOCKED by default**:
 
 ```bash
-# Production'da hiçbir mutation çalışmaz (Varsayılan)
+# No mutations work in production (default)
 COOLIFY_DENY_PRODUCTION_MUTATIONS=true
-
-# Sadece deploy'a izin ver (DENY_PRODUCTION_MUTATIONS=false olmalı)
-COOLIFY_ALLOW_PRODUCTION_DEPLOY=false  # varsayılan kapalı
-
-# Stop asla açık değil
-COOLIFY_ALLOW_STOP=false  # varsayılan kapalı
+# Allow deploy only (DENY_PRODUCTION_MUTATIONS must be false)
+COOLIFY_ALLOW_PRODUCTION_DEPLOY=false  # disabled by default
+# Stop is never enabled by default
+COOLIFY_ALLOW_STOP=false  # disabled by default
 ```
 
-### 🔒 Katman 4: Least-Privilege Token
-
+### 🔒 Layer 4: Least-Privilege Tokens
 ```mermaid
 graph LR
     A[AI Agent] --> B{MCP Server}
@@ -828,96 +702,84 @@ graph LR
     H --> I
 ```
 
-Her işlem için **en düşük yetkiye sahip token** otomatik seçilir. Read işlemi için master token kullanılmaz.
+**The lowest-privilege token** is automatically selected for each operation. The master token is never used for a read operation.
 
-### 🔒 Katman 5: Allowlist'ler
-
-Opsiyonel olarak erişimi belirli kaynaklarla sınırlayabilirsiniz:
+### 🔒 Layer 5: Allowlists
+Optionally restrict access to specific resources:
 
 ```bash
-# Sadece bu projelere erişim
+# Only these projects
 COOLIFY_ALLOWED_PROJECT_UUIDS="uuid1,uuid2,uuid3"
-
-# Sadece bu ortamlara erişim
+# Only these environments
 COOLIFY_ALLOWED_ENVIRONMENT_UUIDS="uuid1,uuid2"
-
-# Sadece bu kaynaklara erişim
+# Only these resources
 COOLIFY_ALLOWED_RESOURCE_UUIDS="uuid1,uuid2"
 ```
 
-### 🔒 Katman 6: Ekstra Korumalar
+### 🔒 Layer 6: Additional Protections
 
-| Koruma | Açıklama |
-|--------|----------|
-| **Timing-safe API key karşılaştırması** | HTTP transport için timing attack önlemi |
-| **Path traversal koruması** | Storage mount'larda `../` ve `..\\` engellenir |
-| **Cron validation** | Scheduled task oluşturulurken cron ifadesi doğrulanır |
-| **Field allowlisting** | Config güncellemelerinde sadece belgeli alanlar değiştirilebilir |
-| **DB şifre koruması** | `coolify_create_database` yanıtında şifre/bağlantı döndürülmez |
-| **Redakte edilmiş audit** | Audit event'leri asla secret değer içermez |
+| Protection | Description |
+|------------|-------------|
+| **Timing-safe API key comparison** | Timing attack prevention for HTTP transport |
+| **Path traversal protection** | `../` and `..\\` are blocked in storage mounts |
+| **Cron validation** | Cron expressions are validated on scheduled task creation |
+| **Field allowlisting** | Config updates can only change documented fields |
+| **DB password protection** | `coolify_create_database` never returns passwords/connection strings |
+| **Redacted audit** | Audit events never contain secret values |
 
-### 🔒 Katman 7: Dashboard'da Secret Yok
-
-Web dashboard'da hiçbir secret değer gösterilmez:
-- Env var VALUE'ları gösterilmez
-- Token'lar gösterilmez
-- SSH key'ler gösterilmez
-- DB connection string'leri gösterilmez
+### 🔒 Layer 7: No Secrets in Dashboard
+No secret values are displayed in the web dashboard:
+- Env var VALUES are not shown
+- Tokens are not shown
+- SSH keys are not shown
+- DB connection strings are not shown
 
 ---
 
-## 8. Kurulum (Hızlı Başlangıç)
+## 8. Setup (Quick Start)
 
-> 💡 **Tahmini süre: 5 dakika**
+> 💡 **Estimated time: 5 minutes**
 
-### Gereksinimler
-
+### Requirements
 - **Node.js >= 18**
-- Bir Coolify instance'ı (ve API token'ı)
-- OpenCode (veya herhangi bir MCP istemcisi)
+- A Coolify instance (and API token)
+- OpenCode (or any MCP client)
 
-### Adım Adım Kurulum
-
+### Step-by-Step Setup
 ```bash
-# 1. Repo'yu clone'la
-git clone <repo-adresi> mcp-coolify
+# 1. Clone the repo
+git clone <repo-address> mcp-coolify
 cd mcp-coolify
-
-# 2. Bağımlılıkları kur
+# 2. Install dependencies
 npm install
-
-# 3. .env dosyasını oluştur ve düzenle
+# 3. Create and edit the .env file
 cp .env.example .env
 ```
 
-`.env` dosyasını açıp şu minimum değişiklikleri yapın:
+Open the `.env` file and make these minimum changes:
 
 ```bash
-# Zorunlu: Coolify instance URL'si
-COOLIFY_URL=https://coolify.sirketiniz.com
-
-# Zorunlu: En az bir API token
+# Required: Coolify instance URL
+COOLIFY_URL=https://coolify.yourcompany.com
+# Required: At least one API token
 COOLIFY_API_TOKEN=your-api-token-here
-
-# Önerilen: Operation mode
-COOLIFY_OPERATION_MODE=read-only  # Güvenli başlangıç
+# Recommended: Operation mode
+COOLIFY_OPERATION_MODE=read-only  # Safe start
 ```
 
-Sonra devam:
+Then continue:
 
 ```bash
-# 4. Build al (hem MCP'yi hem dashboard'u build eder)
+# 4. Build (builds both MCP and dashboard)
 npm run build:all
-
-# 5. Test et (sağlık kontrolü)
+# 5. Test (health check)
 npm start
-# konsolda: "MCP Server ready on stdio" yazısını görmelisiniz
-# Dashboard başladıysa: "Dashboard: http://127.0.0.1:6489"
+# In console you should see: "MCP Server ready on stdio"
+# If dashboard started: "Dashboard: http://127.0.0.1:6489"
 ```
 
-### OpenCode'a Ekleme
-
-`opencode.local.jsonc` dosyanıza ekleyin:
+### Adding to OpenCode
+Add to your `opencode.local.jsonc` file:
 
 ```jsonc
 {
@@ -927,7 +789,7 @@ npm start
       "type": "local",
       "command": ["node", "/path/to/mcp-coolify/dist/index.js"],
       "environment": {
-        "COOLIFY_URL": "https://coolify.sirketiniz.com",
+        "COOLIFY_URL": "https://coolify.yourcompany.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
         "COOLIFY_OPERATION_MODE": "read-only"
       }
@@ -936,117 +798,106 @@ npm start
 }
 ```
 
-> ⚠️ Not: `dist/index.js` yolunu **mutlak (absolute) yol** olarak yazın. `~/` veya `$HOME` gibi kestirmeler çalışmayabilir.
-
-### OpenCode'u Yeniden Başlatın
-
-OpenCode'u kapatıp açın veya MCP'yi yeniden yükleyin. Artık `@coolify` ile tüm Coolify araçlarını kullanabilirsiniz.
-
-### Doğrulama
-
-OpenCode'da şu komutu deneyin:
+### Verify
+Send a test message to your AI assistant:
 
 ```
-@coolify Sağlık kontrolü yap
+@coolify Run a health check
 ```
 
-Cevap olarak şuna benzer bir çıktı almalısınız:
+You should receive an output similar to:
 
 ```json
 {
   "ok": true,
-  "coolifyUrl": "https://coolify.sirketiniz.com",
+  "coolifyUrl": "https://coolify.yourcompany.com",
   "authStatus": "authenticated",
   "latencyMs": 42,
   "transport": "stdio"
 }
 ```
 
-### Sorun Giderme
+### Troubleshooting
 
-| Sorun | Çözüm |
-|-------|-------|
-| `Configuration validation failed: coolifyUrl: Required` | `COOLIFY_URL` ayarlanmamış. `.env`'yi kontrol edin. |
-| `Configuration validation failed: coolifyUrl: Invalid URL` | URL geçerli değil. Protokol dahil (`https://`) yazın. |
-| `AUTHENTICATION_FAILED` — "No Coolify API token configured" | `COOLIFY_API_TOKEN` veya scoped token'lardan birini ayarlayın. |
-| `POLICY_DENIED` — "Production mutations are denied" | Ortam adı "production" ile eşleşiyor. `COOLIFY_DENY_PRODUCTION_MUTATIONS=false` ile açabilirsiniz. |
-| `POLICY_DENIED` — "Stop operations are disabled" | `COOLIFY_ALLOW_STOP=true` ayarlayın. |
-| Log'lar beklenenden az satır gösteriyor | `COOLIFY_LOG_MAX_LINES` varsayılan 200. 1000'e kadar artırabilirsiniz. |
+| Problem | Solution |
+|---------|----------|
+| `Configuration validation failed: coolifyUrl: Required` | `COOLIFY_URL` not set. Check your `.env`. |
+| `Configuration validation failed: coolifyUrl: Invalid URL` | URL is not valid. Include the protocol (`https://`). |
+| `AUTHENTICATION_FAILED` — "No Coolify API token configured" | Set `COOLIFY_API_TOKEN` or one of the scoped tokens. |
+| `POLICY_DENIED` — "Production mutations are denied" | Environment name matches "production". You can allow it with `COOLIFY_DENY_PRODUCTION_MUTATIONS=false`. |
+| `POLICY_DENIED` — "Stop operations are disabled" | Set `COOLIFY_ALLOW_STOP=true`. |
+| Logs show fewer lines than expected | `COOLIFY_LOG_MAX_LINES` defaults to 200. You can increase it up to 1000. |
 
 ---
 
 ## 9. Dashboard
 
-Coolify MCP Server, MCP sunucusuyla birlikte otomatik olarak bir **web dashboard** başlatır.
+Coolify MCP Server automatically starts a **web dashboard** alongside the MCP server.
 
-### Özellikler
+### Features
 
-| Özellik | Detay |
-|---------|-------|
-| **Adres** | `http://127.0.0.1:6489` (sadece localhost) |
-| **Otomatik başlar** | MCP ile birlikte, ayrı komut gerekmez |
-| **Global arama** | Tüm entity'lerde (proje, kaynak, deployment) anlık arama |
-| **Command palette** | `Ctrl+K` ile hızlı komut paleti |
-| **Tema** | Dark/Light mode desteği |
-| **Tool kataloğu** | 42 tool'un tamamı görüntülenebilir |
-| **Audit log** | Tüm mutation geçmişi izlenebilir |
-| **KPI kartları** | Anlık durum: proje sayısı, kaynak durumu, son deployment'lar |
+| Feature | Details |
+|---------|---------|
+| **Address** | `http://127.0.0.1:6489` (localhost only) |
+| **Auto-starts** | Along with MCP, no separate command needed |
+| **Global search** | Instant search across all entities (projects, resources, deployments) |
+| **Command palette** | `Ctrl+K` for quick commands |
+| **Theme** | Dark/Light mode support |
+| **Tool catalog** | All 42 tools are viewable |
+| **Audit log** | All mutation history is browsable |
+| **KPI cards** | Real-time status: project count, resource status, recent deployments |
 
-### Konfigürasyon
-
+### Configuration
 ```bash
-# Dashboard'u tamamen kapat
+# Disable the dashboard entirely
 MCP_DASHBOARD_ENABLED=false
-
-# Host ve port değiştirme (varsayılan: 127.0.0.1:6489)
+# Change host and port (default: 127.0.0.1:6489)
 MCP_DASHBOARD_HOST=127.0.0.1
 MCP_DASHBOARD_PORT=6489
 ```
 
 ### Dashboard vs MCP
-
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   Coolify MCP Server                 │
 ├──────────────────────┬──────────────────────────────┤
 │    MCP (stdio/HTTP)  │    Web Dashboard (Fastify)   │
 │                      │                              │
-│  • AI asistanları    │  • İnsan kullanıcılar        │
-│  • Tool çağrıları    │  • Görsel arayüz             │
-│  • JSON response     │  • Global arama              │
-│  • 42 tool           │  • Audit log izleme           │
-│                      │  • KPI kartları               │
+│  • AI assistants     │  • Human users               │
+│  • Tool calls        │  • Visual interface          │
+│  • JSON responses    │  • Global search             │
+│  • 42 tools          │  • Audit log viewing          │
+│                      │  • KPI cards                  │
 └──────────────────────┴──────────────────────────────┘
         ▲                            ▲
         │                            │
-        │        Aynı Süreç          │
+        │        Same Process        │
         └────────────────────────────┘
 ```
 
-Dashboard, MCP sunucusuyla aynı Node.js sürecinde çalışır. Ayrı bir süreç başlatmaya gerek yoktur.
+The dashboard runs in the same Node.js process as the MCP server. No separate process needs to be started.
 
 ---
 
-## 🎯 Özet
+## 🎯 Summary
 
-Coolify MCP Server, AI asistanlarınızın Coolify altyapınızı **güvenli, kontrollü ve denetlenebilir** bir şekilde yönetmesini sağlar:
+Coolify MCP Server enables your AI assistants to manage your Coolify infrastructure in a **safe, controlled, and auditable** way:
 
-| Özellik | Değer |
+| Feature | Value |
 |---------|-------|
-| **Toplam Tool** | 42 (25 read-only + 17 action) |
-| **Operation Mode** | read-only / deploy-only / safe-write |
-| **Güvenlik** | 7 katmanlı savunma |
-| **Secret Redaction** | Otomatik + env var VALUE'ları asla |
-| **Production Guard** | Mutation'lar varsayılan engelli |
-| **Token Seçimi** | Least-privilege, 5 scoped token |
+| **Total Tools** | 42 (25 read-only + 17 action) |
+| **Operation Modes** | read-only / deploy-only / safe-write |
+| **Security** | 7 layers of defense |
+| **Secret Redaction** | Automatic + env var VALUES never returned |
+| **Production Guard** | Mutations blocked by default |
+| **Token Selection** | Least-privilege, 5 scoped tokens |
 | **Dashboard** | http://127.0.0.1:6489 |
-| **Audit** | Tüm mutation'lar kayıtlı |
+| **Audit** | All mutations recorded |
 
-> **İlk adım**: `read-only` mod ile başlayın, alıştıkça `deploy-only`'ye, sonra `safe-write`'a geçin. Production'da `read-only` en güvenlisi.
+> **First step**: Start with `read-only` mode, then move to `deploy-only` as you get comfortable, and finally `safe-write`. In production, `read-only` is the safest.
 
 ---
 
-*Bu doküman projenin kaynak kodundan otomatik olarak değil, birebir incelenerek ve test edilerek hazırlanmıştır. Eksik veya hatalı bir şey bulursanız güncellemekten çekinmeyin.*
-
-<!-- Son güncelleme: 2026-07-12 -->
-<!-- Toplam tool sayısı: src/server/create-server.ts üzerinden sayılmıştır: 23 read + 2 config (safe-write) + 17 action = 42 -->
+*This document was prepared by thoroughly reviewing and testing the project's source code — not automatically generated. If you find anything missing or incorrect, don't hesitate to update it.*
+<!-- Last updated: 2026-07-12 -->
+<!-- Total tool count: counted from src/server/create-server.ts: 23 read + 2 config (safe-write) + 17 action = 42 -->
