@@ -16,13 +16,14 @@ A production-grade MCP (Model Context Protocol) server that provides AI agents w
 5. [Quick Start](#-quick-start)
 6. [Environment Variables](#-environment-variables)
 7. [Local stdio Usage](#-local-stdio-usage-opencode)
-8. [Remote HTTP Usage](#-remote-http-usage-opencode)
-9. [Tool Catalog](#-tool-catalog)
-10. [Operation Modes](#-operation-modes)
-11. [Production Safeguards](#-production-safeguards)
-12. [Docker Usage](#-docker-usage)
-13. [Troubleshooting](#-troubleshooting)
-14. [Development](#-development)
+8. [🤖 LLM Install Prompt](#-llm-install-prompt-copy-paste-this-into-any-ai-assistant)
+9. [Remote HTTP Usage](#-remote-http-usage-opencode)
+10. [Tool Catalog](#-tool-catalog)
+11. [Operation Modes](#-operation-modes)
+12. [Production Safeguards](#-production-safeguards)
+13. [Docker Usage](#-docker-usage)
+14. [Troubleshooting](#-troubleshooting)
+15. [Development](#-development)
 
 ---
 
@@ -248,6 +249,48 @@ Expected response:
 
 ---
 
+
+---
+
+## 🤖 LLM Install Prompt (copy-paste this into any AI assistant)
+
+If you want an AI assistant (Cursor, Claude Code, Gemini CLI, opencode, Copilot, Windsurf, Aider, etc.) to install and configure the Coolify MCP Server for you, copy the block below and paste it as your prompt. The assistant will read this README and your environment, install the package, set the required env vars, register the MCP entry, and verify the connection.
+
+````markdown
+Install the @imhecateq/mcp-coolify MCP server on this machine and wire it into the MCP client I am currently using. Use the README at https://github.com/hecateq/mcp-coolify and the package docs at https://www.npmjs.com/package/@imhecateq/mcp-coolify as authoritative.
+
+Steps:
+1. Ask me for:
+   - COOLIFY_URL (e.g. https://coolify.example.com)
+   - COOLIFY_API_TOKEN (a Coolify API token; least-privilege recommended)
+   - Whether I want stdio (local) or http (remote) transport
+2. Verify the package exists: `npm view @imhecateq/mcp-coolify version`
+3. Install globally: `npm install -g @imhecateq/mcp-coolify`
+4. Smoke-test the binary: `mcp-coolify --version` (or run `node -e "require.resolve('@imhecateq/mcp-coolify')"`)
+5. Configure the MCP client (opencode.json / claude_desktop_config.json / .cursor/mcp.json / ~/.codex/config.toml / gemini extensions.json / etc.) with:
+   - command: `node`
+   - args: `["/home/<user>/.npm-global/lib/node_modules/@imhecateq/mcp-coolify/dist/index.js"]` (use `npm root -g` to find the actual path)
+   - env: COOLIFY_URL, COOLIFY_API_TOKEN, MCP_TRANSPORT=stdio, optionally COOLIFY_OPERATION_MODE=read-only for safety on first run
+6. Verify the connection end-to-end by calling the `coolify_health` tool.
+7. Show me the diff of the MCP config file you changed and the env vars you set.
+8. Do NOT enable `safe-write` or `deploy-only` modes unless I explicitly ask. Default to `read-only`.
+9. Do NOT add any new runtime dependencies — the package already ships everything it needs.
+10. If install fails or the binary errors, show me the exact stderr and stop before mutating anything.
+
+Constraints:
+- Package scope is `@imhecateq/*`. NEVER use `@hecateq/mcp-coolify` (that npm scope does not exist for this account).
+- Build output filename is `dist/index.js` (NOT `.mjs`).
+- Never bypass `prepublishOnly`, lint, typecheck, or tests.
+- If a setting is ambiguous, ask me before writing.
+````
+
+After pasting, the assistant will likely ask follow-up questions about your Coolify URL and API token. Have those ready.
+
+> **Tip:** For maximum safety, generate a **read-only** Coolify API token first, install in `read-only` mode, exercise the catalog, then mint a wider token and switch to `deploy-only` or `safe-write` once you trust the setup.
+
+A standalone copy of this prompt is also available at [`INSTALL_PROMPT.md`](./INSTALL_PROMPT.md) — easier to share with another AI assistant via a file URL.
+
+---
 ## Environment Variables
 
 All configuration is via environment variables. Read from `src/config/schema.ts` via Zod validation.
