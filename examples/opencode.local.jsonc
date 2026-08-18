@@ -3,7 +3,10 @@
   "mcp": {
     "coolify": {
       "type": "local",
-      "command": ["node", "/path/to/coolify-mcp/dist/index.mjs"],
+      // Option A: Use directly via npx (no clone needed)
+      "command": ["npx", "-y", "@imhecateq/mcp-coolify"],
+      // Option B: Use local clone build: ["node", "/path/to/mcp-coolify/dist/index.js"]
+      // Option C: Use global install: ["mcp-coolify"]
       "environment": {
         // ─── Required ────────────────────────────────────────
         "COOLIFY_URL": "https://coolify.example.com",

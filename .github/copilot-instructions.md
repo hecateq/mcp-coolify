@@ -84,4 +84,4 @@ npm publish --access public  # Full publish; runs prepublishOnly first
 
 ## License
 
-MIT (c) 2025 hecateq / imhecateq. See `LICENSE`.
+MIT (c) 2026 hecateq / imhecateq. See `LICENSE`.

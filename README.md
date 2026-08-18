@@ -2,8 +2,16 @@
 
 A production-grade MCP (Model Context Protocol) server that provides AI agents with secure, controlled access to Coolify infrastructure management.
 
-[![npm version](https://img.shields.io/badge/version-1.0.0-blue)](package.json)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@imhecateq/mcp-coolify.svg?style=flat-square)](https://www.npmjs.com/package/@imhecateq/mcp-coolify)
+[![npm downloads](https://img.shields.io/npm/dm/@imhecateq/mcp-coolify.svg?style=flat-square)](https://www.npmjs.com/package/@imhecateq/mcp-coolify)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg?style=flat-square)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
+> ### ⚡ 1-Click AI Setup (Cursor, Claude, Windsurf, OpenCode, Copilot)
+> Give this single instruction or raw URL to any AI assistant:
+> ```text
+> Read https://raw.githubusercontent.com/hecateq/mcp-coolify/main/INSTALL_PROMPT.md and set up the Coolify MCP server for my active environment.
+> ```
 
 ---
 
@@ -15,7 +23,7 @@ A production-grade MCP (Model Context Protocol) server that provides AI agents w
 4. [Coolify API Permissions](#-coolify-api-permissions)
 5. [Quick Start](#-quick-start)
 6. [Environment Variables](#-environment-variables)
-7. [Local stdio Usage](#-local-stdio-usage-opencode)
+7. [Local stdio Usage (Client Configuration)](#local-stdio-usage-client-configuration)
 8. [🤖 LLM Install Prompt](#-llm-install-prompt-copy-paste-this-into-any-ai-assistant)
 9. [Remote HTTP Usage](#-remote-http-usage-opencode)
 10. [Tool Catalog](#-tool-catalog)
@@ -254,30 +262,33 @@ Expected response:
 
 ## 🤖 LLM Install Prompt (copy-paste this into any AI assistant)
 
-Copy the block below into **any** AI assistant (Cursor, Claude Code, Gemini CLI, opencode, Copilot, Windsurf, Aider, etc.). The assistant will install the package, wire it into your MCP client, and verify the connection.
+Copy and paste this single instruction into **any** AI assistant (Cursor, Claude Code, Gemini CLI, OpenCode, GitHub Copilot, Windsurf, Aider, etc.):
+
+```text
+Read https://raw.githubusercontent.com/hecateq/mcp-coolify/main/INSTALL_PROMPT.md and set up the Coolify MCP server for my environment.
+```
+
+Or copy the prompt instructions directly:
 
 ````markdown
-Install the @imhecateq/mcp-coolify MCP server on this machine.
+Configure the @imhecateq/mcp-coolify MCP server on this machine.
 
-Ask me first for:
-- COOLIFY_URL
-- COOLIFY_API_TOKEN (read-only token is fine)
-- Whether I want stdio or http transport
+1. Ask me first for:
+   - COOLIFY_URL (e.g. https://coolify.example.com)
+   - COOLIFY_API_TOKEN (read-only token is fine)
+   - COOLIFY_OPERATION_MODE (default: read-only)
 
-Then:
-1. Run: npm install -g @imhecateq/mcp-coolify
-2. Find the install path with: npm root -g
-3. Add an MCP entry to whatever client config I'm using (opencode.json, .cursor/mcp.json, claude_desktop_config.json, etc.):
-   - command: node
-   - args: ["<npm root -g path>/@imhecateq/mcp-coolify/dist/index.js"]
-   - env: { COOLIFY_URL, COOLIFY_API_TOKEN, MCP_TRANSPORT: "stdio", COOLIFY_OPERATION_MODE: "read-only" }
-4. Restart the MCP client
-5. Confirm it works by calling coolify_health
+2. Detect my MCP client (Cursor .cursor/mcp.json, Claude Desktop claude_desktop_config.json, OpenCode opencode.json, Cline, etc.) and add:
+   - command: "npx"
+   - args: ["-y", "@imhecateq/mcp-coolify"]
+   - env: { COOLIFY_URL, COOLIFY_API_TOKEN, COOLIFY_OPERATION_MODE: "read-only" }
+
+3. Verify connection by calling `coolify_health`.
 
 Show me what changed when done.
 ````
 
-See [INSTALL_PROMPT.md](./INSTALL_PROMPT.md) for a standalone copy.
+See [INSTALL_PROMPT.md](./INSTALL_PROMPT.md) for the standalone guide.
 
 ---
 
@@ -345,9 +356,9 @@ All configuration is via environment variables. Read from `src/config/schema.ts`
 
 ---
 
-## Local stdio Usage (OpenCode)
+## Local stdio Usage (Client Configuration)
 
-Add to your `opencode.local.jsonc`:
+### 1. OpenCode (`opencode.local.jsonc` or `opencode.json`)
 
 ```jsonc
 {
@@ -355,7 +366,7 @@ Add to your `opencode.local.jsonc`:
   "mcp": {
     "coolify": {
       "type": "local",
-      "command": ["node", "/path/to/coolify-mcp/dist/index.mjs"],
+      "command": ["npx", "-y", "@imhecateq/mcp-coolify"],
       "environment": {
         "COOLIFY_URL": "https://coolify.example.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
@@ -366,7 +377,70 @@ Add to your `opencode.local.jsonc`:
 }
 ```
 
-A complete example is at [`examples/opencode.local.jsonc`](examples/opencode.local.jsonc).
+> **Using a local clone?** Replace `"command": ["npx", "-y", "@imhecateq/mcp-coolify"]` with `"command": ["node", "/path/to/mcp-coolify/dist/index.js"]`.
+> A complete example is at [`examples/opencode.local.jsonc`](examples/opencode.local.jsonc).
+
+### 2. Claude Desktop (`claude_desktop_config.json`)
+
+On macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+On Windows: `%APPDATA%\Claude\claude_desktop_config.json`  
+On Linux: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "coolify": {
+      "command": "npx",
+      "args": ["-y", "@imhecateq/mcp-coolify"],
+      "env": {
+        "COOLIFY_URL": "https://coolify.example.com",
+        "COOLIFY_API_TOKEN": "your-coolify-api-token",
+        "COOLIFY_OPERATION_MODE": "read-only"
+      }
+    }
+  }
+}
+```
+
+### 3. Cursor (`.cursor/mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "coolify": {
+      "command": "npx",
+      "args": ["-y", "@imhecateq/mcp-coolify"],
+      "env": {
+        "COOLIFY_URL": "https://coolify.example.com",
+        "COOLIFY_API_TOKEN": "your-coolify-api-token",
+        "COOLIFY_OPERATION_MODE": "read-only"
+      }
+    }
+  }
+}
+```
+
+### 4. VS Code (Cline / Roo Code)
+
+In your MCP settings (`cline_mcp_settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "coolify": {
+      "command": "npx",
+      "args": ["-y", "@imhecateq/mcp-coolify"],
+      "env": {
+        "COOLIFY_URL": "https://coolify.example.com",
+        "COOLIFY_API_TOKEN": "your-coolify-api-token",
+        "COOLIFY_OPERATION_MODE": "read-only"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
 
 ---
 

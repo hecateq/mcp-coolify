@@ -210,7 +210,7 @@ The `.memory-manifest.json` file is the project's memory tracker. When you make 
 
 ## 10. License & credits
 
-MIT (c) 2025 hecateq / imhecateq. See `LICENSE`.
+MIT (c) 2026 hecateq / imhecateq. See `LICENSE`.
 
 Built on top of:
 - `@modelcontextprotocol/sdk` (official MCP SDK)

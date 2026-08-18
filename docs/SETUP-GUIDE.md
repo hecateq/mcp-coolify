@@ -47,9 +47,22 @@ This guide provides step-by-step instructions for setting up, configuring, and c
 
 ## 2. Setup
 
+### Option A — Install from npm (Recommended)
+
+```bash
+# Install globally for CLI binary 'mcp-coolify'
+npm install -g @imhecateq/mcp-coolify
+
+# Or run directly on the fly
+npx -y @imhecateq/mcp-coolify
+```
+
+### Option B — Clone and Build from Source
+
 ```bash
 # 1. Clone the repository
-git clone
+git clone https://github.com/hecateq/mcp-coolify.git
+cd mcp-coolify
 # 2. Install dependencies
 npm install
 # 3. Compile TypeScript (tsup builds ESM into dist/ directory)
@@ -231,7 +244,9 @@ Content of `examples/opencode.local.jsonc`:
   "mcp": {
     "coolify": {
       "type": "local",
-      "command": ["node", "/path/to/coolify-mcp/dist/index.mjs"],
+      // Option A: Direct via npx
+      "command": ["npx", "-y", "@imhecateq/mcp-coolify"],
+      // Option B: Local clone build: ["node", "/path/to/mcp-coolify/dist/index.js"]
       "environment": {
         // ─── Required ────────────────────────────────────────
         "COOLIFY_URL": "https://coolify.ornek.com",
@@ -627,38 +642,34 @@ curl -X POST http://localhost:3000/mcp \
 
 ## Appendix: Tool Catalog
 
-The server registers 15 tools:
+The server registers **42 tools** across 10 functional domains (25 read-only tools and 17 action/mutation tools):
 
-### Read Tools (10)
+### Domain Summary
 
-| # | Tool Name | Description |
-|---|-----------|-------------|
-| 1 | `coolify_health` | Connection and authentication check |
-| 2 | `coolify_list_projects` | List projects (optional name filter) |
-| 3 | `coolify_get_project` | Fetch a single project by UUID |
-| 4 | `coolify_list_resources` | List resources with filters |
-| 5 | `coolify_get_resource` | Single resource detail by UUID (DB URLs redacted) |
-| 6 | `coolify_project_overview` | Project overview (combines 4 API calls) |
-| 7 | `coolify_list_deployments` | List deployments (newest first) |
-| 8 | `coolify_get_deployment` | Deployment detail by UUID |
-| 9 | `coolify_get_application_logs` | Fetch application logs (secrets redacted) |
-| 10 | `coolify_list_environment_variables` | List environment variables (values never returned) |
+| Domain | Total Tools | Read Tools | Action Tools | Highlights |
+|--------|:-----------:|:----------:|:------------:|------------|
+| **Core & Projects** | 7 | 5 | 2 | `coolify_health`, `coolify_list_projects`, `coolify_get_project`, `coolify_project_overview`, `coolify_create_project`, `coolify_create_environment` |
+| **Resources & Applications** | 5 | 2 | 3 | `coolify_list_resources`, `coolify_get_resource`, `coolify_create_application`, `coolify_create_service`, `coolify_create_database` |
+| **Deployments & Lifecycle** | 5 | 2 | 3 | `coolify_list_deployments`, `coolify_get_deployment`, `coolify_deploy`, `coolify_restart`, `coolify_start`, `coolify_cancel_deployment` |
+| **Logs & Environment Variables** | 4 | 2 | 2 | `coolify_get_application_logs`, `coolify_list_environment_variables`, `coolify_set_environment_variable`, `coolify_set_environment_variables` |
+| **GitHub Discovery** | 3 | 3 | 0 | `coolify_list_github_apps`, `coolify_list_repositories`, `coolify_list_branches` |
+| **Scheduled Tasks (Cron)** | 4 | 2 | 2 | `coolify_list_scheduled_tasks`, `coolify_get_task_executions`, `coolify_create_scheduled_task`, `coolify_update_scheduled_task` |
+| **Database Backups** | 2 | 1 | 1 | `coolify_list_database_backups`, `coolify_create_backup_config` |
+| **Servers & Domains** | 5 | 4 | 1 | `coolify_list_servers`, `coolify_get_server`, `coolify_list_server_resources`, `coolify_list_server_domains`, `coolify_validate_server` |
+| **Teams** | 2 | 2 | 0 | `coolify_get_current_team`, `coolify_list_team_members` |
+| **Storage & Mounts** | 2 | 1 | 1 | `coolify_list_storages`, `coolify_create_storage` |
+| **Configuration (safe-write)** | 2 | 0 | 2 | `coolify_update_application_config`, `coolify_update_database_config` |
+| **Emergency Control** | 1 | 0 | 1 | `coolify_stop` (gated by `COOLIFY_ALLOW_STOP=true`) |
 
-### Action Tools (5)
+> For the complete 42-tool parameter list and detailed descriptions, refer to [README.md Tool Catalog](../README.md#-tool-catalog).
 
-| # | Tool Name | Description | Default State |
-|---|-----------|-------------|---------------|
-| 11 | `coolify_deploy` | Deploy a resource | Mode-dependent per mode |
-| 12 | `coolify_restart` | Restart a resource | Mode-dependent per mode |
-| 13 | `coolify_start` | Start a stopped resource | Mode-dependent per mode |
-| 14 | `coolify_stop` | Stop a resource | Requires `COOLIFY_ALLOW_STOP=true` |
-| 15 | `coolify_set_environment_variable` | Add/update environment variable | Requires `COOLIFY_ALLOW_ENV_WRITE=true` |
+All action tools pass through the following policy checks:
 
-All action tools pass through the following 3-layer policy check:
-
-1. **Operation Mode** — Does the mode permit this operation?
-2. **Scope/Allowlist** — Is the target resource in the allowlist (if defined)?
-3. **Production Guard** — If targeting a production environment, should the mutation be blocked?
+1. **Allow Gate Check** — dedicated allow flags (`COOLIFY_ALLOW_STOP`, `COOLIFY_ALLOW_ENV_WRITE`).
+2. **Operation Mode Check** — `read-only`, `deploy-only`, or `safe-write`.
+3. **Scope/Allowlist Check** — UUID allowlist validation if configured.
+4. **Production Guard Check** — production environment mutation protection.
+5. **Input Validation & Audit** — Zod schema validation, cron verification, path traversal protection, and audit logging.
 
 ---
 
