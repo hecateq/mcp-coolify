@@ -177,28 +177,33 @@ The relationship between the Coolify API token permissions and this MCP's tool c
 - A Coolify instance with API tokens configured
 - Coolify API token(s) with appropriate scopes
 
-### Option A — Install directly from GitHub (easiest)
-
+### Option A — Install from npm (recommended)
 ```bash
-# Install as a dependency directly from the public GitHub repo
-# (the prepare script builds dist/ automatically)
-npm install github:hecateq/mcp-coolify
-
-# Or run it on the fly with npx
-npx -y github:hecateq/mcp-coolify
+npm install -g @imhecateq/mcp-coolify
+# Or run it on the fly
+npx -y @imhecateq/mcp-coolify
 ```
+
+### Option B — Install from GitHub
+```bash
+git clone https://github.com/hecateq/mcp-coolify.git
+cd mcp-coolify
+npm install
+npm run build
+```
+
 
 Then configure your MCP client (see [Local stdio Usage](#-local-stdio-usage-opencode)) with:
 
 ```jsonc
 {
   "type": "local",
-  "command": ["node", "node_modules/mcp-coolify/dist/index.js"],
+  "command": ["node", "node_modules/@imhecateq/mcp-coolify/dist/index.js"],
   "environment": { "COOLIFY_URL": "...", "COOLIFY_API_TOKEN": "..." }
 }
 ```
 
-### Option B — Clone and run locally
+### Option C — Clone and run locally
 
 ```bash
 # 1. Clone the repository

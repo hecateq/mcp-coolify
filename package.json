@@ -1,5 +1,5 @@
 {
-  "name": "@hecateq/mcp-coolify",
+  "name": "@imhecateq/mcp-coolify",
   "version": "1.0.0",
   "description": "Production-grade Coolify MCP Server — manage Coolify infrastructure via Model Context Protocol",
   "type": "module",
@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/hecateq/mcp-coolify#readme",
   "author": {
-    "name": "hecateq",
+    "name": "imhecateq",
     "url": "https://github.com/hecateq"
   },
   "engines": {
