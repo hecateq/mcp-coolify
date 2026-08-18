@@ -1,28 +1,28 @@
-# 🔧 Coolify MCP Server — Tool Envanteri
+# 🔧 Coolify MCP Server — Tool Inventory
 
-> Oluşturulma: 2026-08-12 | Kaynak: MCP protokolü üzerinden görünen tool tanımları + gerçek tool çağrıları
+> Created: 2026-08-12 | Source: Tool definitions visible through MCP protocol + actual tool calls
 
 ---
 
-## 1. Tool Listesi (42 tool)
+## 1. Tool List (42 tools)
 
-> Not: `*` = zorunlu parametre. `[enum]` = action/status parametrelerinin alabileceği değerler.
+> Note: `*` = required parameter. `[enum]` = possible values for action/status parameters.
 
 ### 📦 Deployments & Repo
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `deploy` | resource_uuid, resource_type `[application\|service\|database]`, force (bool), environment_name | ✓ uuid, type |
 | `cancel_deployment` | deployment_uuid | ✓ |
 | `list_deployments` | resource_uuid, status `[queued\|in_progress\|finished\|failed\|cancelled-by-user]`, limit | — |
 | `get_deployment` | deployment_uuid | ✓ |
-| `list_branches` | github_app_uuid, owner, repository | ✓ hepsi |
+| `list_branches` | github_app_uuid, owner, repository | ✓ all |
 | `list_github_apps` | — | — |
 | `list_repositories` | github_app_uuid, search, page, limit | ✓ app uuid |
 
 ### 🖥️ Servers & Infrastructure
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `health` | — | — |
 | `list_servers` | — | — |
@@ -33,9 +33,9 @@
 
 ### 📁 Projects & Environments
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
-| `list_projects` | name (filtre) | — |
+| `list_projects` | name (filter) | — |
 | `get_project` | uuid | ✓ |
 | `create_project` | name, description | ✓ name |
 | `create_environment` | project_uuid, name | ✓ |
@@ -43,53 +43,53 @@
 
 ### 🚀 Applications
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `list_resources` | project_uuid, environment_uuid, resource_type `[application\|service\|database\|postgresql\|mysql\|redis\|mongodb]`, status `[running\|stopped\|degraded\|restarting\|exited]`, search | — |
 | `get_resource` | uuid, type `[application\|service\|database]` | ✓ |
-| `create_application` | project_uuid, environment_uuid, name, source_type `[public\|private-github-app\|private-deploy-key\|dockerfile\|dockerimage]`, repository_url, branch, build_pack, port (int), domains | ✓ proje, env, name |
+| `create_application` | project_uuid, environment_uuid, name, source_type `[public\|private-github-app\|private-deploy-key\|dockerfile\|dockerimage]`, repository_url, branch, build_pack, port (int), domains | ✓ project, env, name |
 | `update_application_config` | application_uuid, name, description, fqdn, health_check (bool), cpu_limit, memory_limit, cpu_shares (2-1024), replicas (1-10), ports, build_pack, base_directory, dockerfile_location, auto_deploy (bool), previews (bool) | ✓ app uuid |
 | `get_application_logs` | application_uuid, lines (10-1000) | ✓ app uuid |
 | `start` / `stop` / `restart` | resource_uuid, resource_type, environment_name | ✓ |
 
 ### 🗄️ Databases
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
-| `create_database` | project_uuid, environment_uuid, server_uuid, database_type `[postgresql\|mysql\|mongodb\|redis\|mariadb\|keydb\|dragonfly\|clickhouse]`, name, version | ✓ proje, env, server, type, name |
+| `create_database` | project_uuid, environment_uuid, server_uuid, database_type `[postgresql\|mysql\|mongodb\|redis\|mariadb\|keydb\|dragonfly\|clickhouse]`, name, version | ✓ project, env, server, type, name |
 | `update_database_config` | database_uuid, name, description, cpu_limit, memory_limit | ✓ db uuid |
 
 ### ⚙️ Services
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
-| `create_service` | project_uuid, environment_uuid, server_uuid, name, service_type, docker_compose_raw | ✓ proje, env, server, name |
+| `create_service` | project_uuid, environment_uuid, server_uuid, name, service_type, docker_compose_raw | ✓ project, env, server, name |
 
 ### 🌿 Env Vars
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
-| `list_environment_variables` | ⚠️ **parametre YOK** (bug gibi görünüyor) | — |
+| `list_environment_variables` | ⚠️ **no parameters** (appears to be a bug) | — |
 | `set_environment_variable` | resource_uuid, key, value, environment_name | ✓ uuid, key, value |
-| `set_environment_variables` | resource_uuid, resource_type, variables (1-50 adet {key,value}), environment_name | ✓ uuid, type, variables |
+| `set_environment_variables` | resource_uuid, resource_type, variables (1-50 entries of {key,value}), environment_name | ✓ uuid, type, variables |
 
 ### 💾 Backups
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `create_backup_config` | database_uuid, schedule (cron), destination_uuid, retention (1-365), enabled (bool) | ✓ db, schedule |
 | `list_database_backups` | database_uuid | ✓ |
 
 ### 👥 Teams
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `get_current_team` | — | — |
 | `list_team_members` | — | — |
 
 ### 🔁 Scheduled Tasks & Storage
 
-| Tool | Parametreler | Zorunlu |
+| Tool | Parameters | Required |
 |---|---|---|
 | `create_scheduled_task` | resource_uuid, resource_type `[application\|service]`, name, command, schedule (cron), container, timeout (≤86400s), enabled | ✓ uuid, type, name, command, schedule |
 | `update_scheduled_task` | task_uuid, resource_uuid, resource_type, name, command, schedule, container, timeout, enabled | ✓ task, uuid, type |
@@ -100,14 +100,14 @@
 
 ---
 
-## 2. Kategorize Özeti
+## 2. Categorized Summary
 
-| Kategori | Tool sayısı | Okuma | Yazma |
+| Category | Tool Count | Read | Write |
 |---|---|---|---|
 | Infrastructure/Servers | 6 | 5 | 1 (validate) |
 | Projects/Environments | 5 | 3 | 2 |
 | Applications | 9 | 3 | 6 |
-| Databases | 2 | 0 (read → get_resource ile) | 2 |
+| Databases | 2 | 0 (read → via get_resource) | 2 |
 | Services | 1 | 0 | 1 |
 | Deployments/Repo | 7 | 6 | 1 |
 | Env Vars | 3 | 1 | 2 |
@@ -117,26 +117,26 @@
 
 ---
 
-## 3. Kapsam Testi
+## 3. Scope Test
 
-| İşlem | Durum | Açıklama |
+| Operation | Status | Description |
 |---|---|---|
-| **Container exec** (içine girip komut çalıştırma) | ❌ **YOK** | Exec benzeri hiçbir tool yok |
-| **CPU/memory limit** | ✅ **VAR** | `update_application_config` (cpu_limit, memory_limit, cpu_shares) + `update_database_config` |
-| **Docker prune / disk temizliği** | ❌ **YOK** | Yok |
-| **Notification kanalı** (Slack/Discord/email) | ❌ **YOK** | Yok |
-| **Domain/SSL/proxy config** | ⚠️ **KISMEN** | `fqdn` + `ports` değiştirilebilir; SSL sertifika/HTTPS yönetimi **yok**; `list_server_domains` sadece okuma |
-| **Metrics / resource history** | ❌ **YOK** | Hiçbir metrics tool'u yok — sadece anlık status string'i (`running:healthy`), grafik/history imkânsız |
-| **Team davet / rol atama** | ⚠️ **SADECE LİSTELEME** | `list_team_members` var; davet, silme, rol atama **yok** |
-| **Backup hedefi (S3) tanımlama** | ⚠️ **KISMEN** | `create_backup_config` `destination_uuid` alıyor ama destination (S3 storage) **oluşturma/yönetme tool'u yok** |
-| **Batch işlem** | ❌ **YOK** | Hepsi tek kaynak bazlı; toplu deploy/güncelleme yok |
-| **Webhook yönetimi** | ❌ **YOK** | Yok |
+| **Container exec** (exec into container and run commands) | ❌ **NO** | No exec-like tool exists |
+| **CPU/memory limit** | ✅ **YES** | `update_application_config` (cpu_limit, memory_limit, cpu_shares) + `update_database_config` |
+| **Docker prune / disk cleanup** | ❌ **NO** | None |
+| **Notification channel** (Slack/Discord/email) | ❌ **NO** | None |
+| **Domain/SSL/proxy config** | ⚠️ **PARTIAL** | `fqdn` + `ports` can be changed; SSL certificate/HTTPS management **none**; `list_server_domains` read-only |
+| **Metrics / resource history** | ❌ **NO** | No metrics tool exists — only instant status string (`running:healthy`), no charts/history possible |
+| **Team invite / role assignment** | ⚠️ **LISTING ONLY** | `list_team_members` exists; invite, delete, role assignment **none** |
+| **Backup destination (S3) configuration** | ⚠️ **PARTIAL** | `create_backup_config` accepts `destination_uuid` but no destination (S3 storage) **create/manage tool exists** |
+| **Batch operation** | ❌ **NO** | All single-resource based; no bulk deploy/update |
+| **Webhook management** | ❌ **NO** | None |
 
 ---
 
-## 4. Gerçek Çağrı Testi — `project_overview`
+## 4. Actual Call Test — `project_overview`
 
-`get_infrastructure_overview` diye bir tool **yok**; en yakın karşılık `project_overview`. Gerçek response:
+`get_infrastructure_overview` tool does **not exist**; closest equivalent is `project_overview`. Actual response:
 
 ```json
 {
@@ -155,47 +155,47 @@
 }
 ```
 
-**Response şekli bulguları:**
+**Response shape findings:**
 
-- Standart format: `{ok, summary, data, meta}` — güzel ve tutarlı
-- **Çok özet düzey**: `get_resource` bile sadece `uuid/name/status` döndürdü — domain, port, image, env bilgisi yok
-- **Sensitive alanlar redact**: env value'ları, SSH key'ler, sunucu IP'leri güvenlik gereği asla dönmüyor
-- `list_resources` 54 kaynak döndürdü (ad, tip, status) — `project_overview`'daki `resources` array'i ise boş görünüyor (filtreleme davranışı tutarsız olabilir)
-- Durum formatı: `"running:healthy"`, `"exited:unhealthy"` gibi bileşik string
-
----
-
-## 5. Sonuç
-
-### 🟥 Kritik Eksikler
-
-1. **Container exec** — hata ayıklama için en önemli operasyonel yetenek
-2. **Metrics/history** — resource kullanımı, CPU/RAM geçmişi, grafik verisi (anlık bile yok, sadece health status)
-3. **Notification kanalı yönetimi** — Slack/Discord/email kanalı ekleme/değiştirme
-4. **Webhook yönetimi** — otomasyon/entegrasyon için gerekli
-5. **Backup destination tanımlama** — S3 vb. hedef oluşturmadan backup config anlamını yitiriyor
-
-### 🟨 Olsa İyi Olur
-
-1. **Docker prune / disk temizliği** — uzun süreli çalışan sunucularda ihtiyaç doğuyor
-2. **SSL sertifika yönetimi** — renew, force HTTPS, cert durumu görme
-3. **Batch işlemler** — çoklu app'te toplu deploy/stop/restart
-4. **Team yazma** — davet etme, rol değiştirme, üye silme
-5. **Detaylı resource görünümü** — `get_resource`'un fqdn/port/image/domain içeren genişletilmiş hali
-
-### 🟩 Gerekmeyebilir
-
-1. **Storage snapshot/restore** — Coolify API'sinde zaten yok, MCP'nin eklemesi de beklenmez
-2. **Anlık resource usage (live stats)** — `docker stats` benzeri veri API'den gelmiyor, ayrı sunucu erişimi gerekir
+- Standard format: `{ok, summary, data, meta}` — clean and consistent
+- **Very summary-level**: `get_resource` bile sadece `uuid/name/status` returned — no domain, port, image, env info
+- **Sensitive fields redacted**: env values, SSH keys, server IPs never returned for security reasons
+- `list_resources` 54 returned resources (name, type, status) — `project_overview`'daki `resources` array'i ise appears empty (filtering behavior may be inconsistent)
+- Status format: `"running:healthy"`, `"exited:unhealthy"` compound strings like
 
 ---
 
-## Genel Değerlendirme
+## 5. Conclusion
 
-CRUD ağırlıklı, temiz ve tutarlı bir MCP server. Yaşam döngüsü yönetimi (deploy/start/stop/restart/config) iyi kapsanmış; ama **operasyonel derinlik zayıf** (exec, metrics, notification, webhook yok).
+### 🟥 Critical Gaps
 
-**Bilinen tutarsızlıklar:**
-- `list_environment_variables`'ın resource parametresi hiç yok
-- `project_overview`'ın resources array'i boş geliyor
+1. **Container exec** — most important operational capability for debugging
+2. **Metrics/history** — resource usage, CPU/RAM history, chart data (not even instant, only health status)
+3. **Notification channel management** — Slack/Discord/email add/change Slack/Discord/email channels
+4. **Webhook management** — required for automation/integration
+5. **Backup destination configuration** — backup config loses meaning without creating S3 etc. destinations
 
-Bunlar MCP server'ın kendi bug'ları gibi duruyor.
+### 🟨 Nice to Have
+
+1. **Docker prune / disk cleanup** — needed on long-running servers
+2. **SSL certificate management** — renew, force HTTPS, check cert status
+3. **Batch operations** — bulk deploy/stop/restart across multiple apps
+4. **Team write operations** — invite, change roles, remove members
+5. **Detailed resource view** — `get_resource`'un extended version of `get_resource` with fqdn/port/image/domain
+
+### 🟩 May Not Be Needed
+
+1. **Storage snapshot/restore** — not in Coolify API, not expected from MCP either
+2. **Instant resource usage (live stats)** — `docker stats` -like data not available from API, requires separate server access
+
+---
+
+## Overall Assessment
+
+CRUD-focused, clean and consistent MCP server. Lifecycle management (deploy/start/stop/restart/config) well covered; but **operational depth is weak** (no exec, metrics, notification, webhook).
+
+**Known inconsistencies:**
+- `list_environment_variables has no resource parameter at all
+- `project_overview's resources array comes back empty
+
+These appear to be bugs in the MCP server itself.

@@ -48,15 +48,15 @@ This guide provides step-by-step instructions for setting up, configuring, and c
 ## 2. Setup
 
 ```bash
-# 1. Depoyu klonla
+# 1. Clone the repository
 git clone
-# 2. Bağımlılıkları yükle
+# 2. Install dependencies
 npm install
-# 3. TypeScript'i derle (tsup ile ESM formatında dist/ klasörüne)
+# 3. Compile TypeScript (tsup builds ESM into dist/ directory)
 npm run build
-# 4. Çevre değişkenleri şablonunu kopyala
+# 4. Copy the environment variables template
 cp .env.example .env
-# 5. .env dosyasını düzenle (bir sonraki bölüme bak)
+# 5. Edit the .env file (see next section)
 # vi .env
 ```
 
@@ -148,24 +148,24 @@ COOLIFY_ALLOWED_RESOURCE_UUIDS=xyz11111-...
 ### 3.8. Example `.env` File
 
 ```bash
-# ─── Zorunlu ────────────────────────────────────────────────────
+# ─── Required ────────────────────────────────────────────────────
 COOLIFY_URL=https://coolify.ornek.com
 COOLIFY_API_TOKEN=cof_token_ornek-api-token-buraya-gelir
 # ─── Transport ──────────────────────────────────────────────────
-# "stdio" (varsayılan) veya "http"
+# "stdio" (default) or "http"
 MCP_TRANSPORT=stdio
 # MCP_HTTP_HOST=0.0.0.0
 # MCP_HTTP_PORT=3000
 # MCP_SERVER_API_KEY=
-# ─── İşletim Modu ──────────────────────────────────────────────
+# ─── Operation Mode ──────────────────────────────────────────────
 COOLIFY_OPERATION_MODE=read-only
-# ─── Production Koruma ─────────────────────────────────────────
+# ─── Production Protection ─────────────────────────────────────────
 COOLIFY_PRODUCTION_ENV_NAMES=production,prod
 COOLIFY_DENY_PRODUCTION_MUTATIONS=true
 COOLIFY_ALLOW_PRODUCTION_DEPLOY=false
 COOLIFY_ALLOW_STOP=false
 COOLIFY_ALLOW_ENV_WRITE=false
-# ─── Loglama ───────────────────────────────────────────────────
+# ─── Logging ───────────────────────────────────────────────────
 COOLIFY_LOG_MAX_LINES=200
 ```
 
@@ -178,10 +178,10 @@ COOLIFY_LOG_MAX_LINES=200
 ### 4.1. Local (stdio) — Default Mode
 
 ```bash
-# .env dosyasından değişkenleri okuyarak çalıştır
+# Run by reading variables from .env file
 MCP_TRANSPORT=stdio npm start
 
-# Ya da .env zaten yapılandırıldıysa doğrudan:
+# Or if .env is already configured, run directly:
 npm start
 ```
 
@@ -207,10 +207,10 @@ In this mode, the server accepts MCP requests over HTTP + SSE (Server-Sent Event
 | `POST /mcp` | Yes (Bearer) | All MCP tool calls go to this endpoint. |
 
 ```bash
-# Sağlık kontrolü
+# Health check
 curl http://localhost:3000/healthz
 # {"ok":true,"status":"alive"}
-# Hazır olma kontrolü (Coolify bağlantısını test eder)
+# Readiness check (tests Coolify API connection)
 curl http://localhost:3000/readyz
 # {"ok":true,"coolifyUrl":"https://coolify.ornek.com","authStatus":"authenticated"}
 ```
@@ -233,18 +233,18 @@ Content of `examples/opencode.local.jsonc`:
       "type": "local",
       "command": ["node", "/path/to/coolify-mcp/dist/index.mjs"],
       "environment": {
-        // ─── Zorunlu ────────────────────────────────────────
+        // ─── Required ────────────────────────────────────────
         "COOLIFY_URL": "https://coolify.ornek.com",
         "COOLIFY_API_TOKEN": "{env:COOLIFY_API_TOKEN}",
-        // ─── İsteğe Bağlı: Kapsamlı Token'lar ──────────────
-        // COOLIFY_API_TOKEN yerine en az yetkili token'lar
+        // ─── Optional: Scoped Tokens ──────────────
+        // Scoped tokens instead of COOLIFY_API_TOKEN
         // "COOLIFY_READ_TOKEN": "{env:COOLIFY_READ_TOKEN}",
         // "COOLIFY_SENSITIVE_TOKEN": "{env:COOLIFY_SENSITIVE_TOKEN}",
         // "COOLIFY_WRITE_TOKEN": "{env:COOLIFY_WRITE_TOKEN}",
         // "COOLIFY_DEPLOY_TOKEN": "{env:COOLIFY_DEPLOY_TOKEN}",
-        // ─── İşletim Modu ──────────────────────────────────
+        // ─── Operation Mode ──────────────────────────────────
         "COOLIFY_OPERATION_MODE": "read-only",
-        // ─── Allowlist (Opsiyonel) ─────────────────────────
+        // ─── Allowlist (Optional) ─────────────────────────
         // "COOLIFY_ALLOWED_PROJECT_UUIDS": "uuid1,uuid2",
         // "COOLIFY_ALLOWED_RESOURCE_UUIDS": "uuid3"
       }
@@ -300,10 +300,10 @@ Content of `examples/opencode.remote.jsonc`:
 The project includes a `Dockerfile` prepared with a multi-stage Docker build. It is optimized for production: non-root user, HEALTHCHECK, minimal image size.
 
 ```bash
-# 1. İmajı build et
+# 1. Build the image
 docker build -t coolify-mcp .
 
-# 2. Container'ı çalıştır (HTTP modu)
+# 2. Run the container (HTTP mode)
 docker run -d --name coolify-mcp --restart unless-stopped \
   -p 3000:3000 \
   -e COOLIFY_URL=https://coolify.ornek.com \
@@ -312,7 +312,7 @@ docker run -d --name coolify-mcp --restart unless-stopped \
   -e MCP_SERVER_API_KEY=guclu-bir-api-anahtari \
   coolify-mcp
 
-# 3. Health check'in çalıştığını doğrula
+# 3. Verify the health check is working
 curl http://localhost:3000/healthz
 ```
 
@@ -360,21 +360,21 @@ To verify the setup is working correctly, run the following commands in order:
 
 ```bash
 npm run build
-# tsup ile dist/index.js oluşur, hata yoksa tamam.
+# tsup produces dist/index.js; if no errors, it's done.
 ```
 
 ### 7.2. Type Check
 
 ```bash
 npm run typecheck
-# tsc --noEmit — tip hatası yoksa geçer.
+# tsc --noEmit — if no type errors, it passes.
 ```
 
 ### 7.3. Tests
 
 ```bash
 npm test
-# vitest ile tüm test suite'i çalıştırır.
+# vitest runs the entire test suite.
 ```
 
 ### 7.4. HTTP Health Check (HTTP mode)
@@ -530,7 +530,7 @@ In this mode, all 5 action tools return `POLICY_DENIED`. Only observation is per
 
 ```bash
 openssl rand -hex 32
-# Örnek çıktı: 7f8a9b3c2d1e0f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f
+# Example output: 7f8a9b3c2d1e0f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f
 ```
 
 Place this key in the `.env` file or a secure secret manager. Never embed it in code.
@@ -604,9 +604,9 @@ With these settings, any mutation (deploy, restart, stop, environment variable c
 ### 10.5. HTTP Transport Not Working
 
 ```bash
-# 1. API key'in ayarlandığından emin olun
+# 1. Make sure the API key is configured
 echo $MCP_SERVER_API_KEY
-# 2. Health endpoint'i kontrol edin
+# 2. Check the health endpoint
 curl -v http://localhost:3000/healthz
 # 3. MCP endpoint'ini token ile test edin
 curl -X POST http://localhost:3000/mcp \
