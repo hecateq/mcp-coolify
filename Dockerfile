@@ -45,5 +45,6 @@ ENTRYPOINT ["node", "dist/index.js"]
 
 # --- OCI metadata labels ---
 LABEL org.opencontainers.image.title="mcp-coolify" \
-      org.opencontainers.image.description="Production-grade Coolify MCP Server \u2014 manage Coolify infrastructure via Model Context Protocol" \
-      org.opencontainers.image.version="1.0.0"
+      org.opencontainers.image.description="Production-grade Coolify MCP Server — manage Coolify infrastructure via Model Context Protocol" \
+      org.opencontainers.image.source="https://github.com/hecateq/mcp-coolify" \
+      org.opencontainers.image.licenses="MIT"
